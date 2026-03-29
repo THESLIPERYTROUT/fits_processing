@@ -1,0 +1,7 @@
+.venv/
+__pycache__/
+**/output/**
+**/input/**
+testing_shit/
+*.bsp
+calibration_frames/
