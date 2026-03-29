@@ -11,9 +11,9 @@
     {
         "midpoint_filter": true, 
         "colinear_filter": false, 
-        "line_angle": true,
-        "endpoint_filter" : true,
-        "length_filter" : false
+        "line_angle": false,
+        "endpoint_filter" : false,
+        "length_filter" : true
     },
 
     "background_detection_method": 

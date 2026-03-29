@@ -12,7 +12,7 @@ from streakiller.config.schema import FilterParams
 
 def length_filter(lines: np.ndarray, params: FilterParams) -> np.ndarray:
     """
-    Keep lines whose length >= *params.length_fraction* * max_length.
+    Keep lines whose length >= *params.length_fraction* * modal_length.
 
     Parameters
     ----------
@@ -26,15 +26,17 @@ def length_filter(lines: np.ndarray, params: FilterParams) -> np.ndarray:
     if lines is None or len(lines) == 0:
         return np.empty((0, 1, 4), dtype=np.int32)
 
-    lengths = np.array([
-        np.hypot(line[0][2] - line[0][0], line[0][3] - line[0][1])
-        for line in lines
-    ])
-    max_len = float(np.max(lengths))
-    min_allowed = params.length_fraction * max_len
+    coords = lines[:, 0, :]
+    dx = coords[:, 2] - coords[:, 0]
+    dy = coords[:, 3] - coords[:, 1]
+    lengths = np.hypot(dx, dy)
+    rounded_lengths = np.rint(lengths).astype(np.int32)
+    modal_len = float(np.bincount(rounded_lengths).argmax())
+    min_allowed = params.length_fraction * modal_len
+    max_allowed = params.length_fraction * modal_len * 2
 
-    kept = [line for line, ln in zip(lines, lengths) if ln >= min_allowed]
+    kept = lines[(lengths >= min_allowed) & (lengths <= max_allowed)]
 
-    if not kept:
+    if len(kept) == 0:
         return np.empty((0, 1, 4), dtype=np.int32)
-    return np.array(kept, dtype=np.int32)
+    return kept.astype(np.int32, copy=False)
