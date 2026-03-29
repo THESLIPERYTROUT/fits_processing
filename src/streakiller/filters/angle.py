@@ -1,15 +1,4 @@
-"""
-Angle filter — removes near-duplicate detections by line orientation.
 
-BUG FIX vs original (streakprocessing.py:261):
-  Original kept lines whose angle differed by MORE than the threshold — the
-  opposite of deduplication.  The intent is to *discard* lines that are
-  within min_angle_diff degrees of an already-accepted line (i.e. they're
-  essentially parallel duplicates pointing the same direction).
-
-  Fixed condition: `abs(angle - fangle) < min_angle_diff` marks a line as
-  a duplicate to be dropped.
-"""
 from __future__ import annotations
 
 import numpy as np
@@ -38,6 +27,7 @@ def angle_filter(lines: np.ndarray, params: FilterParams) -> np.ndarray:
     accepted: list[np.ndarray] = []
 
     for line in lines:
+        #TODO make redundant if first line is not alligned with the majority of lines (goal is to remove outliers, not to keep the first line)
         x1, y1, x2, y2 = line[0]
         angle = np.degrees(np.arctan2(y2 - y1, x2 - x1))
         is_duplicate = False
@@ -45,7 +35,7 @@ def angle_filter(lines: np.ndarray, params: FilterParams) -> np.ndarray:
             fx1, fy1, fx2, fy2 = kept[0]
             fangle = np.degrees(np.arctan2(fy2 - fy1, fx2 - fx1))
             # BUG FIX: was `> threshold` (kept all different-angle lines, never deduped)
-            if abs(angle - fangle) < threshold:
+            if abs(angle - fangle) > threshold:
                 is_duplicate = True
                 break
         if not is_duplicate:
