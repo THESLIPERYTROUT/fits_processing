@@ -1,0 +1,30 @@
+============================================================
+STREAK DETECTION PROCESSING RESULTS
+============================================================
+
+Timestamp: 2026-03-11T19:05:54.033262
+
+BACKGROUND DETECTION METHOD:
+----------------------------------------
+  simple_median: disabled
+  Guassian_blur: ENABLED
+  doublepass_median_to_guassian_blur: disabled
+
+LINE FILTERS ENABLED:
+----------------------------------------
+  midpoint_filter: ENABLED
+  colinear_filter: disabled
+  line_angle: ENABLED
+  endpoint_filter: ENABLED
+  length_filter: ENABLED
+
+OTHER CONFIGURATION:
+----------------------------------------
+  Default Min Line Length: 25
+  Estimated Streak Length Enabled: False
+  Logging Level: INFO
+
+RESULTS:
+----------------------------------------
+  Total Streaks Extracted: 8
+============================================================

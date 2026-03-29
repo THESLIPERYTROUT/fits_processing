@@ -1,0 +1,26 @@
+{
+    "images_dir": "images",
+    "output_dir": "output",
+    "logging_level": "INFO",
+    "image_calibration": false,
+    "cailbration_dir": "calibration_frames",
+    "estimated_streak_length_enabled": false,
+    "default_minlinelength": 25,
+
+    "enabled_line_filters": 
+    {
+        "midpoint_filter": true, 
+        "colinear_filter": false, 
+        "line_angle": true,
+        "endpoint_filter" : true,
+        "length_filter" : true
+    },
+
+    "background_detection_method": 
+    {
+        "simple_median" : false,
+        "Guassian_blur" : true,
+        "doublepass_median_to_guassian_blur" : false
+    }
+
+}
