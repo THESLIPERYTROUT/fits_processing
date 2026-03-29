@@ -4,4 +4,5 @@ __pycache__/
 **/input/**
 testing_shit/
 *.bsp
-calibration_frames/
+calibration_frames/**
+images/**
