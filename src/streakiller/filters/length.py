@@ -25,6 +25,10 @@ def length_filter(lines: np.ndarray, params: FilterParams) -> np.ndarray:
     """
     if lines is None or len(lines) == 0:
         return np.empty((0, 1, 4), dtype=np.int32)
+    
+    elif len(lines) <=2:
+        # With 2 or fewer lines, we can't reliably estimate a modal length, so we keep them all.
+        return lines.astype(np.int32, copy=False)
 
     coords = lines[:, 0, :]
     dx = coords[:, 2] - coords[:, 0]
