@@ -5,14 +5,14 @@
     "image_calibration": false,
     "cailbration_dir": "calibration_frames",
     "estimated_streak_length_enabled": false,
-    "default_minlinelength": 25,
+    "default_minlinelength": 30,
 
     "enabled_line_filters": 
     {
         "midpoint_filter": true, 
         "colinear_filter": false, 
-        "line_angle": false,
-        "endpoint_filter" : false,
+        "line_angle": true,
+        "endpoint_filter" : true,
         "length_filter" : true
     },
 

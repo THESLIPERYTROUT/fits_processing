@@ -15,7 +15,6 @@ from pathlib import Path
 from typing import Protocol, runtime_checkable
 
 import cv2
-import matplotlib.pyplot as plt
 import numpy as np
 from PIL import Image, PngImagePlugin
 
@@ -23,6 +22,18 @@ from streakiller.config.schema import OutputOptions
 from streakiller.models.result import PipelineResult
 
 logger = logging.getLogger(__name__)
+
+# Okabe-Ito-inspired BGR palette chosen for stronger separation under
+# red-green color vision deficiencies.
+STAGE_OVERLAY_COLORS: list[tuple[int, int, int]] = [
+    (233, 180, 86),   # sky blue
+    (0, 159, 230),    # orange
+    (115, 158, 0),    # bluish green
+    (66, 228, 240),   # yellow
+    (178, 114, 0),    # blue
+    (0, 94, 213),     # vermillion
+    (167, 121, 204),  # reddish purple
+]
 
 
 @runtime_checkable
@@ -113,9 +124,9 @@ class LocalOutputWriter:
         if base.ndim == 2:
             base = cv2.cvtColor(base, cv2.COLOR_GRAY2BGR)
 
-        stages = [("detected", result.detected_lines)] + [
+        stages = [("initial_detected", result.initial_detected_lines)] + [
             (s.stage_name, s.lines) for s in result.filter_snapshots
-        ]
+        ] + [("final", result.detected_lines)]
         overlay = _draw_filter_stage_overlays(base, stages)
 
         path = run_dir / "filter_stage_overlays.png"
@@ -149,22 +160,18 @@ class LocalOutputWriter:
 def _draw_filter_stage_overlays(
     base_image: np.ndarray,
     stages: list[tuple[str, np.ndarray]],
-    cmap_name: str = "tab10",
-    thickness: int = 2,
+    thickness: int = 3,
 ) -> np.ndarray:
     out = base_image.copy()
     if out.ndim == 2:
         out = cv2.cvtColor(out, cv2.COLOR_GRAY2BGR)
 
-    h, w = out.shape[:2]
-    cmap = plt.get_cmap(cmap_name)
     n = max(1, len(stages))
 
     for idx, (name, lines) in enumerate(stages):
         if lines is None or len(lines) == 0:
             continue
-        c = cmap(idx / max(1, n - 1))[:3]
-        color = (int(c[2] * 255), int(c[1] * 255), int(c[0] * 255))
+        color = STAGE_OVERLAY_COLORS[idx % len(STAGE_OVERLAY_COLORS)]
         overlay = out.copy()
         for line in lines:
             l = np.asarray(line).reshape(-1)
@@ -183,8 +190,7 @@ def _draw_filter_stage_overlays(
     cv2.addWeighted(legend_bg, 0.45, out, 0.55, 0, out)
 
     for idx, (name, lines) in enumerate(stages):
-        c = cmap(idx / max(1, n - 1))[:3]
-        color = (int(c[2] * 255), int(c[1] * 255), int(c[0] * 255))
+        color = STAGE_OVERLAY_COLORS[idx % len(STAGE_OVERLAY_COLORS)]
         ty = ly + 6 + idx * 35
         cv2.rectangle(out, (lx, ty), (lx + 20, ty + 20), color, -1)
         count = len(lines) if lines is not None and hasattr(lines, "__len__") else 0

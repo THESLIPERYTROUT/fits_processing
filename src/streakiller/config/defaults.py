@@ -26,7 +26,7 @@ DOUBLE_PASS_INPAINT_RADIUS = 3    # Telea inpainting neighbourhood radius (pixel
 MIDPOINT_MIN_DISTANCE = 10.0      # pixels; remove lines whose midpoints are closer than this
 ENDPOINT_MIN_DISTANCE = 10.0      # pixels; remove lines whose endpoints are closer than this
 ANGLE_MIN_DIFF_DEG = 10.0         # degrees; deduplicate lines within this angle of each other
-LENGTH_FRACTION = 0.9            # keep lines >= this fraction of the longest detected line
+LENGTH_FRACTION = 0.90            # keep lines >= this fraction of the longest detected line
 COLINEAR_ORIENTATION_TOL = 1.0    # cross-product magnitude below which two segments are collinear
 
 # --- Hot pixel removal (streakprocessing.py:685) ---

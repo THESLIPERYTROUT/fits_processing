@@ -29,7 +29,7 @@ class Provenance:
     background_method_used: str
     min_line_length_used: float
     hough_threshold_used: int
-    stage_line_counts: dict            # {"detected": 42, "midpoint_filter": 31, ...}
+    stage_line_counts: dict            # {"initial_detected": 42, "midpoint_filter": 31, "final": 12, ...}
 
 
 @dataclass
@@ -46,7 +46,8 @@ class PipelineResult:
     """
 
     source_path: Optional[Path]
-    detected_lines: np.ndarray                  # shape (N, 1, 4), dtype int32
+    initial_detected_lines: np.ndarray = field(default_factory=lambda: np.empty((0, 1, 4), dtype=np.int32))
+    detected_lines: np.ndarray = field(default_factory=lambda: np.empty((0, 1, 4), dtype=np.int32))
     filter_snapshots: list[FilterStageSnapshot] = field(default_factory=list)
     normalized_display: Optional[np.ndarray] = None   # uint8 (H, W) for visualisation
     binary_image: Optional[np.ndarray] = None         # uint8 (H, W) Hough input

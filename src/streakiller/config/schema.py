@@ -131,7 +131,7 @@ class PipelineConfig:
     calibration_dir: str = "calibration_frames"
     estimated_streak_length_enabled: bool = False
     norad_id: Optional[int] = None
-    default_minlinelength: int = 25
+    default_minlinelength: int = 35
     hotpixel_threshold: int = HOTPIXEL_THRESHOLD
     enabled_line_filters: EnabledFilters = field(default_factory=EnabledFilters)
     background_detection_method: BackgroundMethod = field(default_factory=BackgroundMethod)
