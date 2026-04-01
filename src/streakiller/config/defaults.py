@@ -35,3 +35,11 @@ HOTPIXEL_THRESHOLD = 5000         # ADU; pixels above this are considered hot
 # --- Image normalisation for display (streakprocessing.py:83-88) ---
 NORM_PERCENTILE_LOW = 2.0         # lower percentile clip
 NORM_PERCENTILE_HIGH = 98.0       # upper percentile clip
+
+# --- Background: Adaptive Local (local mesh + iterative sigma-clipping + local SNR) ---
+ADAPTIVE_LOCAL_TILE_SIZE = 64         # side length of each mesh tile in pixels (must be >= 8)
+ADAPTIVE_LOCAL_CLIP_SIGMA = 3.0       # per-tile sigma-clipping rejection threshold
+ADAPTIVE_LOCAL_N_ITERATIONS = 3       # number of sigma-clipping passes per tile
+ADAPTIVE_LOCAL_SNR_THRESHOLD = 3.0    # min local SNR (residual / local_sigma) for foreground
+ADAPTIVE_LOCAL_MIN_TILE_PIXELS = 10   # min surviving pixels for a tile to be considered valid
+ADAPTIVE_LOCAL_MORPH_KERNEL = 3       # morphological close kernel size (pixels)
