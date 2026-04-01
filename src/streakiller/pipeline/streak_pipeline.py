@@ -43,7 +43,12 @@ class StreakPipeline:
         streak_estimator=None,
         output_writer=None,
     ) -> None:
-        from streakiller.background import GaussianBlurEstimator, SimpleMedianEstimator, DoublePassEstimator
+        from streakiller.background import (
+            GaussianBlurEstimator,
+            SimpleMedianEstimator,
+            DoublePassEstimator,
+            AdaptiveLocalEstimator,
+        )
         from streakiller.detection.detector import StreakDetector
         from streakiller.filters.chain import FilterChain
 
@@ -59,6 +64,8 @@ class StreakPipeline:
                 self._background = SimpleMedianEstimator()
             elif method.double_pass:
                 self._background = DoublePassEstimator()
+            elif method.adaptive_local:
+                self._background = AdaptiveLocalEstimator()
             else:
                 self._background = GaussianBlurEstimator()
 

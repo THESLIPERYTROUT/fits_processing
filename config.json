@@ -7,20 +7,21 @@
     "estimated_streak_length_enabled": false,
     "default_minlinelength": 30,
 
-    "enabled_line_filters": 
+    "enabled_line_filters":
     {
-        "midpoint_filter": true, 
-        "colinear_filter": false, 
+        "midpoint_filter": true,
+        "colinear_filter": false,
         "line_angle": true,
         "endpoint_filter" : true,
         "length_filter" : true
     },
 
-    "background_detection_method": 
+    "background_detection_method":
     {
         "simple_median" : false,
         "Guassian_blur" : true,
-        "doublepass_median_to_guassian_blur" : false
+        "doublepass_median_to_guassian_blur" : false,
+        "adaptive_local": false
     }
 
 }
