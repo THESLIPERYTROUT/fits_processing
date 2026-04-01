@@ -36,6 +36,7 @@ from streakiller.config.defaults import (
     ADAPTIVE_LOCAL_SNR_THRESHOLD,
     ADAPTIVE_LOCAL_MIN_TILE_PIXELS,
     ADAPTIVE_LOCAL_MORPH_KERNEL,
+    ADAPTIVE_LOCAL_GAUSSIAN_KERNEL_SIZE,
 )
 
 # Keys in old config.json that were misspelled.  Maps old_key -> canonical_key.
@@ -81,6 +82,7 @@ class BackgroundParams:
     adaptive_local_snr_threshold: float = ADAPTIVE_LOCAL_SNR_THRESHOLD
     adaptive_local_min_tile_pixels: int = ADAPTIVE_LOCAL_MIN_TILE_PIXELS
     adaptive_local_morph_kernel: int = ADAPTIVE_LOCAL_MORPH_KERNEL
+    adaptive_local_gaussian_kernel_size: int = ADAPTIVE_LOCAL_GAUSSIAN_KERNEL_SIZE
 
 
 @dataclass

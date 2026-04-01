@@ -26,7 +26,7 @@ DOUBLE_PASS_INPAINT_RADIUS = 3    # Telea inpainting neighbourhood radius (pixel
 MIDPOINT_MIN_DISTANCE = 10.0      # pixels; remove lines whose midpoints are closer than this
 ENDPOINT_MIN_DISTANCE = 10.0      # pixels; remove lines whose endpoints are closer than this
 ANGLE_MIN_DIFF_DEG = 10.0         # degrees; deduplicate lines within this angle of each other
-LENGTH_FRACTION = 0.90            # keep lines >= this fraction of the longest detected line
+LENGTH_FRACTION = 0.90            # keep lines +- this fraction of the mode of all detected line lengths
 COLINEAR_ORIENTATION_TOL = 1.0    # cross-product magnitude below which two segments are collinear
 
 # --- Hot pixel removal (streakprocessing.py:685) ---
@@ -40,6 +40,7 @@ NORM_PERCENTILE_HIGH = 98.0       # upper percentile clip
 ADAPTIVE_LOCAL_TILE_SIZE = 64         # side length of each mesh tile in pixels (must be >= 8)
 ADAPTIVE_LOCAL_CLIP_SIGMA = 3.0       # per-tile sigma-clipping rejection threshold
 ADAPTIVE_LOCAL_N_ITERATIONS = 3       # number of sigma-clipping passes per tile
-ADAPTIVE_LOCAL_SNR_THRESHOLD = 3.0    # min local SNR (residual / local_sigma) for foreground
+ADAPTIVE_LOCAL_SNR_THRESHOLD = 2.0    # min local SNR (residual / local_sigma) for foreground
 ADAPTIVE_LOCAL_MIN_TILE_PIXELS = 10   # min surviving pixels for a tile to be considered valid
 ADAPTIVE_LOCAL_MORPH_KERNEL = 3       # morphological close kernel size (pixels)
+ADAPTIVE_LOCAL_GAUSSIAN_KERNEL_SIZE = 51  # Gaussian high-pass pre-filter kernel (must be odd)
