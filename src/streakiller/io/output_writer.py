@@ -146,7 +146,7 @@ class LocalOutputWriter:
             **{k: v for k, v in vars(result.provenance).items()},
         }
         path = run_dir / "processing_results.json"
-        path.write_text(json.dumps(record, indent=2, default=str))
+        path.write_text(json.dumps(record, indent=2, default=str), encoding="utf-8")
         logger.debug("Wrote %s", path)
 
     def _write_text_summary(self, result: PipelineResult, run_dir: Path) -> None:
@@ -236,7 +236,7 @@ class LocalOutputWriter:
         lines += [divider("═"), ""]
 
         path = run_dir / "processing_results.txt"
-        path.write_text("\n".join(lines))
+        path.write_text("\n".join(lines), encoding="utf-8")
         logger.debug("Wrote %s", path)
 
     def _write_intermediates(self, result: PipelineResult, run_dir: Path) -> None:
