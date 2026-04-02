@@ -62,7 +62,7 @@ class TestFullPipeline:
 
         assert result.provenance is not None
         assert result.provenance.software_version != ""
-        assert "detected" in result.provenance.stage_line_counts
+        assert "initial_detected" in result.provenance.stage_line_counts
 
     def test_output_files_written(self, synthetic_fits_image, tmp_path):
         """When a LocalOutputWriter is configured, output files must appear."""

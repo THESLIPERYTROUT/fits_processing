@@ -87,30 +87,36 @@ class TestMidpointFilter:
 
 class TestAngleFilter:
     def test_removes_parallel_duplicate(self):
-        # Two horizontal lines — angle diff = 0 < 10 → second is a duplicate
-        lines = _lines((0, 0, 100, 0), (0, 5, 100, 5))
+        # 5 horizontal + 1 diagonal — dominant cluster is horizontal, diagonal removed
+        lines = _lines(
+            (0, 0, 100, 0), (0, 10, 100, 10), (0, 20, 100, 20),
+            (0, 30, 100, 30), (0, 40, 100, 40),  # 5 horizontal (0°)
+            (0, 0, 100, 100),                     # 45° outlier
+        )
         result = angle_filter(lines, FilterParams(angle_min_diff_deg=10.0))
-        assert len(result) == 1
+        assert len(result) == 5
 
     def test_keeps_perpendicular_lines(self):
-        # Horizontal + vertical — 90° apart → both kept
+        # Fewer than MIN_LINES_FOR_ANGLE_FILTER → all returned unchanged
         lines = _lines((0, 0, 100, 0), (50, 0, 50, 100))
         result = angle_filter(lines, FilterParams(angle_min_diff_deg=10.0))
         assert len(result) == 2
 
     def test_bug_fix_not_inverted(self):
-        # The original code was inverted: it kept lines with angle diff > threshold.
-        # With the fix, two nearly-parallel lines (3° apart) should result in 1 kept.
+        # 5 horizontal + 1 diagonal: dominant cluster (horizontal) should be kept,
+        # angular outlier removed. An inverted filter would keep only the outlier.
         lines = _lines(
-            (0, 0, 100, 0),           # 0°
-            (0, 0, 100, 5),           # ~2.9°
+            (0, 0, 100, 0), (0, 10, 100, 10), (0, 20, 100, 20),
+            (0, 30, 100, 30), (0, 40, 100, 40),  # 5 horizontal
+            (0, 0, 100, 100),                     # 45° outlier
         )
         result = angle_filter(lines, FilterParams(angle_min_diff_deg=10.0))
-        assert len(result) == 1, (
-            "angle_filter should deduplicate near-parallel lines (bug fix check)"
+        assert len(result) == 5, (
+            "angle_filter should keep the dominant cluster and remove outliers"
         )
 
     def test_three_different_angles_all_kept(self):
+        # Fewer than MIN_LINES_FOR_ANGLE_FILTER → all returned unchanged
         lines = _lines(
             (0, 0, 100, 0),    # 0°  (horizontal)
             (0, 0, 0, 100),    # 90° (vertical)
@@ -173,23 +179,33 @@ class TestColinearMerge:
 
 class TestLengthFilter:
     def test_removes_short_lines(self):
-        # One long line (length≈141) and one short line (length=10)
-        lines = _lines((0, 0, 100, 100), (0, 0, 10, 0))
+        # 5 long diagonal lines (~141px) and 1 short (10px)
+        # Fewer than 6 lines triggers the guard; use 6 total so filtering applies.
+        # Modal length ≈ 141; short (10) < 0.8*141 → removed
+        lines = _lines(
+            (0, 0, 100, 100), (10, 10, 110, 110), (20, 20, 120, 120),
+            (30, 30, 130, 130), (40, 40, 140, 140),  # ~141px each
+            (0, 0, 10, 0),                            # 10px
+        )
         result = length_filter(lines, FilterParams(length_fraction=0.8))
-        # Short line (10) < 0.8 * 141 (≈113) → removed
-        assert len(result) == 1
-        x1, y1, x2, y2 = result[0][0]
-        assert x2 == 100 and y2 == 100  # the long line was kept
+        assert len(result) == 5
 
     def test_keeps_all_equal_length_lines(self):
+        # Fewer than 6 lines → guard returns all unchanged
         lines = _lines((0, 0, 50, 0), (0, 100, 50, 100), (0, 200, 50, 200))
         result = length_filter(lines, FilterParams(length_fraction=0.8))
         assert len(result) == 3
 
     def test_custom_fraction(self):
-        # Long: 100px, short: 50px; fraction=0.6 → both kept (50 >= 60? no, 50 < 60)
-        lines = _lines((0, 0, 100, 0), (0, 0, 50, 0))
+        # 5 long (100px) and 1 short (50px)
+        # Modal = 100. fraction=0.6 → min=60 → 50 removed
+        #              fraction=0.4 → min=40 → 50 kept
+        lines = _lines(
+            (0, 0, 100, 0), (0, 10, 100, 10), (0, 20, 100, 20),
+            (0, 30, 100, 30), (0, 40, 100, 40),  # 100px each
+            (0, 0, 50, 0),                        # 50px
+        )
         result_strict = length_filter(lines, FilterParams(length_fraction=0.6))
-        assert len(result_strict) == 1  # 50 < 0.6*100=60, removed
+        assert len(result_strict) == 5  # 50 < 0.6*100=60, removed
         result_loose = length_filter(lines, FilterParams(length_fraction=0.4))
-        assert len(result_loose) == 2   # 50 >= 0.4*100=40, kept
+        assert len(result_loose) == 6   # 50 >= 0.4*100=40, kept

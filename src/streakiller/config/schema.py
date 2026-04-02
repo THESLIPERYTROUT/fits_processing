@@ -120,6 +120,7 @@ class BackgroundMethod:
 @dataclass
 class OutputOptions:
     save_intermediate_images: bool = False
+    save_text_summary: bool = True
 
 
 @dataclass
@@ -220,7 +221,8 @@ class PipelineConfig:
             filter_params=FilterParams(),
             hough_params=HoughParams(),
             output_options=OutputOptions(
-                save_intermediate_images=raw.get("save_intermediate_images", False)
+                save_intermediate_images=raw.get("save_intermediate_images", False),
+                save_text_summary=raw.get("save_text_summary", True),
             ),
             tle_cache_ttl_hours=raw.get("tle_cache_ttl_hours", 24),
         )
