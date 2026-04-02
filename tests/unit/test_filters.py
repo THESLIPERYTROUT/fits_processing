@@ -86,44 +86,43 @@ class TestMidpointFilter:
 # ------------------------------------------------------------------ #
 
 class TestAngleFilter:
-    def test_removes_parallel_duplicate(self):
-        # 5 horizontal + 1 diagonal — dominant cluster is horizontal, diagonal removed
-        lines = _lines(
-            (0, 0, 100, 0), (0, 10, 100, 10), (0, 20, 100, 20),
-            (0, 30, 100, 30), (0, 40, 100, 40),  # 5 horizontal (0°)
-            (0, 0, 100, 100),                     # 45° outlier
-        )
-        result = angle_filter(lines, FilterParams(angle_min_diff_deg=10.0))
-        assert len(result) == 5
-
-    def test_keeps_perpendicular_lines(self):
-        # Fewer than MIN_LINES_FOR_ANGLE_FILTER → all returned unchanged
-        lines = _lines((0, 0, 100, 0), (50, 0, 50, 100))
+    def test_skips_filter_for_small_inputs(self):
+        lines = _lines((0, 0, 100, 0), (0, 5, 100, 5))
         result = angle_filter(lines, FilterParams(angle_min_diff_deg=10.0))
         assert len(result) == 2
 
-    def test_bug_fix_not_inverted(self):
-        # 5 horizontal + 1 diagonal: dominant cluster (horizontal) should be kept,
-        # angular outlier removed. An inverted filter would keep only the outlier.
+    def test_keeps_majority_parallel_cluster(self):
         lines = _lines(
-            (0, 0, 100, 0), (0, 10, 100, 10), (0, 20, 100, 20),
-            (0, 30, 100, 30), (0, 40, 100, 40),  # 5 horizontal
-            (0, 0, 100, 100),                     # 45° outlier
+            (0, 0, 100, 0),
+            (0, 5, 100, 5),
+            (0, 10, 100, 8),
+            (0, 15, 100, 12),
+            (50, 0, 50, 100),
         )
         result = angle_filter(lines, FilterParams(angle_min_diff_deg=10.0))
-        assert len(result) == 5, (
-            "angle_filter should keep the dominant cluster and remove outliers"
-        )
+        assert len(result) == 4
 
-    def test_three_different_angles_all_kept(self):
-        # Fewer than MIN_LINES_FOR_ANGLE_FILTER → all returned unchanged
+    def test_drops_angular_outlier_from_majority(self):
         lines = _lines(
-            (0, 0, 100, 0),    # 0°  (horizontal)
-            (0, 0, 0, 100),    # 90° (vertical)
-            (0, 0, 100, 100),  # 45° (diagonal)
+            (0, 0, 100, 0),
+            (0, 4, 100, 4),
+            (0, 8, 100, 10),
+            (0, 12, 100, 13),
+            (0, 0, 100, 100),
         )
         result = angle_filter(lines, FilterParams(angle_min_diff_deg=10.0))
-        assert len(result) == 3
+        assert len(result) == 4
+
+    def test_handles_reversed_lines_as_same_orientation(self):
+        lines = _lines(
+            (0, 0, 100, 0),
+            (100, 5, 0, 5),
+            (0, 10, 100, 10),
+            (100, 15, 0, 15),
+            (50, 0, 50, 100),
+        )
+        result = angle_filter(lines, FilterParams(angle_min_diff_deg=10.0))
+        assert len(result) == 4
 
 
 # ------------------------------------------------------------------ #
@@ -178,17 +177,10 @@ class TestColinearMerge:
 # ------------------------------------------------------------------ #
 
 class TestLengthFilter:
-    def test_removes_short_lines(self):
-        # 5 long diagonal lines (~141px) and 1 short (10px)
-        # Fewer than 6 lines triggers the guard; use 6 total so filtering applies.
-        # Modal length ≈ 141; short (10) < 0.8*141 → removed
-        lines = _lines(
-            (0, 0, 100, 100), (10, 10, 110, 110), (20, 20, 120, 120),
-            (30, 30, 130, 130), (40, 40, 140, 140),  # ~141px each
-            (0, 0, 10, 0),                            # 10px
-        )
+    def test_skips_filter_for_small_inputs(self):
+        lines = _lines((0, 0, 100, 100), (0, 0, 10, 0))
         result = length_filter(lines, FilterParams(length_fraction=0.8))
-        assert len(result) == 5
+        assert len(result) == 2
 
     def test_keeps_all_equal_length_lines(self):
         # Fewer than 6 lines → guard returns all unchanged
@@ -196,16 +188,31 @@ class TestLengthFilter:
         result = length_filter(lines, FilterParams(length_fraction=0.8))
         assert len(result) == 3
 
-    def test_custom_fraction(self):
-        # 5 long (100px) and 1 short (50px)
-        # Modal = 100. fraction=0.6 → min=60 → 50 removed
-        #              fraction=0.4 → min=40 → 50 kept
+    def test_keeps_only_lines_within_mode_plus_minus_10_percent(self):
         lines = _lines(
-            (0, 0, 100, 0), (0, 10, 100, 10), (0, 20, 100, 20),
-            (0, 30, 100, 30), (0, 40, 100, 40),  # 100px each
-            (0, 0, 50, 0),                        # 50px
+            (0, 0, 100, 0),   # 100
+            (0, 10, 100, 10), # 100
+            (0, 20, 100, 20), # 100
+            (0, 30, 100, 30), # 100
+            (0, 40, 100, 40), # 100
+            (0, 50, 108, 50), # 108, within +10%
+            (0, 60, 89, 60),  # 89, outside -10%
+            (0, 70, 112, 70), # 112, outside +10%
         )
-        result_strict = length_filter(lines, FilterParams(length_fraction=0.6))
-        assert len(result_strict) == 5  # 50 < 0.6*100=60, removed
-        result_loose = length_filter(lines, FilterParams(length_fraction=0.4))
-        assert len(result_loose) == 6   # 50 >= 0.4*100=40, kept
+        result = length_filter(lines, FilterParams(length_fraction=0.9))
+        assert len(result) == 6
+
+    def test_custom_fraction_changes_symmetric_band(self):
+        lines = _lines(
+            (0, 0, 100, 0),   # 100
+            (0, 10, 100, 10), # 100
+            (0, 20, 100, 20), # 100
+            (0, 30, 100, 30), # 100
+            (0, 40, 100, 40), # 100
+            (0, 50, 75, 50),  # 75
+            (0, 60, 125, 60), # 125
+        )
+        result_strict = length_filter(lines, FilterParams(length_fraction=0.9))
+        assert len(result_strict) == 5
+        result_loose = length_filter(lines, FilterParams(length_fraction=0.7))
+        assert len(result_loose) == 7

@@ -43,7 +43,12 @@ class StreakPipeline:
         streak_estimator=None,
         output_writer=None,
     ) -> None:
-        from streakiller.background import GaussianBlurEstimator, SimpleMedianEstimator, DoublePassEstimator
+        from streakiller.background import (
+            GaussianBlurEstimator,
+            SimpleMedianEstimator,
+            DoublePassEstimator,
+            AdaptiveLocalEstimator,
+        )
         from streakiller.detection.detector import StreakDetector
         from streakiller.filters.chain import FilterChain
 
@@ -59,6 +64,8 @@ class StreakPipeline:
                 self._background = SimpleMedianEstimator()
             elif method.double_pass:
                 self._background = DoublePassEstimator()
+            elif method.adaptive_local:
+                self._background = AdaptiveLocalEstimator()
             else:
                 self._background = GaussianBlurEstimator()
 
@@ -105,6 +112,7 @@ class StreakPipeline:
             img_log.error("Pipeline failed: %s", exc, exc_info=True)
             return PipelineResult(
                 source_path=image.source_path,
+                initial_detected_lines=np.empty((0, 1, 4), dtype=np.int32),
                 detected_lines=np.empty((0, 1, 4), dtype=np.int32),
                 error=str(exc),
             )
@@ -136,9 +144,10 @@ class StreakPipeline:
 
         end_utc = datetime.now(tz=timezone.utc).isoformat()
 
-        stage_counts: dict[str, int] = {"detected": len(detection.lines)}
+        stage_counts: dict[str, int] = {"initial_detected": len(detection.lines)}
         for snap in snapshots:
             stage_counts[snap.stage_name] = snap.lines_after
+        stage_counts["final"] = len(final_lines)
 
         provenance = Provenance(
             software_version=__version__,
@@ -153,6 +162,7 @@ class StreakPipeline:
 
         result = PipelineResult(
             source_path=image.source_path,
+            initial_detected_lines=detection.lines.copy(),
             detected_lines=final_lines,
             filter_snapshots=snapshots,
             normalized_display=detection.normalized_display,

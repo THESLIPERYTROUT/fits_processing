@@ -50,6 +50,8 @@ class FilterChain:
         from streakiller.filters.length import length_filter
 
         steps: list[tuple[str, FilterFn]] = []
+        if enabled.length_filter:
+            steps.append(("length_filter", length_filter))
         if enabled.midpoint_filter:
             steps.append(("midpoint_filter", midpoint_filter))
         if enabled.line_angle:
@@ -58,8 +60,7 @@ class FilterChain:
             steps.append(("colinear_merge", colinear_merge))
         if enabled.endpoint_filter:
             steps.append(("endpoint_filter", endpoint_filter))
-        if enabled.length_filter:
-            steps.append(("length_filter", length_filter))
+        
 
         return cls(steps)
 

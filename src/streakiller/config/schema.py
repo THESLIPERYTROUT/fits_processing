@@ -30,6 +30,13 @@ from streakiller.config.defaults import (
     DOUBLE_PASS_SIGMA_MULT,
     DOUBLE_PASS_INPAINT_RADIUS,
     HOTPIXEL_THRESHOLD,
+    ADAPTIVE_LOCAL_TILE_SIZE,
+    ADAPTIVE_LOCAL_CLIP_SIGMA,
+    ADAPTIVE_LOCAL_N_ITERATIONS,
+    ADAPTIVE_LOCAL_SNR_THRESHOLD,
+    ADAPTIVE_LOCAL_MIN_TILE_PIXELS,
+    ADAPTIVE_LOCAL_MORPH_KERNEL,
+    ADAPTIVE_LOCAL_GAUSSIAN_KERNEL_SIZE,
 )
 
 # Keys in old config.json that were misspelled.  Maps old_key -> canonical_key.
@@ -69,6 +76,13 @@ class BackgroundParams:
     simple_median_sigma_mult: float = SIMPLE_MEDIAN_SIGMA_MULT
     double_pass_sigma_mult: float = DOUBLE_PASS_SIGMA_MULT
     double_pass_inpaint_radius: int = DOUBLE_PASS_INPAINT_RADIUS
+    adaptive_local_tile_size: int = ADAPTIVE_LOCAL_TILE_SIZE
+    adaptive_local_clip_sigma: float = ADAPTIVE_LOCAL_CLIP_SIGMA
+    adaptive_local_n_iterations: int = ADAPTIVE_LOCAL_N_ITERATIONS
+    adaptive_local_snr_threshold: float = ADAPTIVE_LOCAL_SNR_THRESHOLD
+    adaptive_local_min_tile_pixels: int = ADAPTIVE_LOCAL_MIN_TILE_PIXELS
+    adaptive_local_morph_kernel: int = ADAPTIVE_LOCAL_MORPH_KERNEL
+    adaptive_local_gaussian_kernel_size: int = ADAPTIVE_LOCAL_GAUSSIAN_KERNEL_SIZE
 
 
 @dataclass
@@ -97,6 +111,7 @@ class BackgroundMethod:
     simple_median: bool = False
     gaussian_blur: bool = True
     double_pass: bool = False
+    adaptive_local: bool = False
 
     @classmethod
     def from_dict(cls, raw: dict) -> "BackgroundMethod":
@@ -105,6 +120,7 @@ class BackgroundMethod:
             simple_median=remapped.get("simple_median", False),
             gaussian_blur=remapped.get("gaussian_blur", True),
             double_pass=remapped.get("double_pass", False),
+            adaptive_local=remapped.get("adaptive_local", False),
         )
 
     def active_name(self) -> str:
@@ -114,6 +130,8 @@ class BackgroundMethod:
             return "gaussian_blur"
         if self.double_pass:
             return "double_pass"
+        if self.adaptive_local:
+            return "adaptive_local"
         return "gaussian_blur"  # fallback, validate() will catch multiple-enabled
 
 
@@ -132,7 +150,7 @@ class PipelineConfig:
     calibration_dir: str = "calibration_frames"
     estimated_streak_length_enabled: bool = False
     norad_id: Optional[int] = None
-    default_minlinelength: int = 25
+    default_minlinelength: int = 35
     hotpixel_threshold: int = HOTPIXEL_THRESHOLD
     enabled_line_filters: EnabledFilters = field(default_factory=EnabledFilters)
     background_detection_method: BackgroundMethod = field(default_factory=BackgroundMethod)
@@ -155,7 +173,7 @@ class PipelineConfig:
             )
 
         bg = self.background_detection_method
-        enabled_count = sum([bg.simple_median, bg.gaussian_blur, bg.double_pass])
+        enabled_count = sum([bg.simple_median, bg.gaussian_blur, bg.double_pass, bg.adaptive_local])
         if enabled_count > 1:
             raise ConfigError(
                 "background_detection_method: exactly one method must be enabled, "
@@ -176,6 +194,16 @@ class PipelineConfig:
         if not (0.0 < fp.length_fraction <= 1.0):
             raise ConfigError(
                 f"filter_params.length_fraction must be in (0, 1], got {fp.length_fraction}"
+            )
+
+        bp = self.background_params
+        if bp.adaptive_local_tile_size < 8:
+            raise ConfigError(
+                f"background_params.adaptive_local_tile_size must be >= 8, got {bp.adaptive_local_tile_size}"
+            )
+        if bp.adaptive_local_snr_threshold <= 0:
+            raise ConfigError(
+                f"background_params.adaptive_local_snr_threshold must be > 0, got {bp.adaptive_local_snr_threshold}"
             )
 
     # ------------------------------------------------------------------ #
