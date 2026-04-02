@@ -77,6 +77,9 @@ class LocalOutputWriter:
         if self._options.save_intermediate_images:
             self._write_intermediates(result, run_dir)
 
+        if self._options.save_text_summary:
+            self._write_text_summary(result, run_dir)
+
         logger.info("Results written to %s", run_dir)
 
     # ------------------------------------------------------------------ #
@@ -146,11 +149,118 @@ class LocalOutputWriter:
         path.write_text(json.dumps(record, indent=2, default=str))
         logger.debug("Wrote %s", path)
 
+    def _write_text_summary(self, result: PipelineResult, run_dir: Path) -> None:
+        p = result.provenance
+        source = result.source_path.name if result.source_path else "unknown"
+        width = 60
+
+        def divider(char="─"):
+            return char * width
+
+        def row(label: str, value: str) -> str:
+            return f"  {label:<28}{value}"
+
+        lines = [
+            divider("═"),
+            "  STREAK DETECTION SUMMARY".center(width),
+            divider("═"),
+            "",
+        ]
+
+        # Source file
+        lines += [
+            row("File:", source),
+            row("Processed:", p.processing_start_utc[:19].replace("T", "  ") if p else "—"),
+            row("Duration:", _format_duration(p) if p else "—"),
+            row("Software version:", p.software_version if p else "—"),
+            "",
+            divider(),
+            "  RESULT",
+            divider(),
+            "",
+            row("Streaks detected:", str(result.streak_count)),
+            row("Status:", "OK" if result.succeeded else f"ERROR — {result.error}"),
+            "",
+        ]
+
+        # Per-streak table
+        if result.streak_count > 0:
+            lines += [
+                divider(),
+                "  DETECTED STREAKS",
+                divider(),
+                "",
+                f"  {'#':<5} {'Start (x,y)':<18} {'End (x,y)':<18} {'Length (px)':<12}",
+                f"  {'─'*4} {'─'*16:<18} {'─'*16:<18} {'─'*10:<12}",
+            ]
+            for i, line in enumerate(result.detected_lines):
+                x1, y1, x2, y2 = line[0]
+                length = ((x2 - x1) ** 2 + (y2 - y1) ** 2) ** 0.5
+                lines.append(
+                    f"  {i+1:<5} ({x1:>5}, {y1:>5})     ({x2:>5}, {y2:>5})     {length:>8.1f}"
+                )
+            lines.append("")
+
+        # Pipeline settings
+        if p:
+            lines += [
+                divider(),
+                "  PIPELINE SETTINGS",
+                divider(),
+                "",
+                row("Background method:", p.background_method_used),
+                row("Min line length:", f"{p.min_line_length_used:.1f} px"),
+                row("Hough threshold:", str(p.hough_threshold_used)),
+                "",
+            ]
+
+            # Filter stage counts
+            if p.stage_line_counts:
+                lines += [
+                    divider(),
+                    "  FILTER STAGES",
+                    divider(),
+                    "",
+                ]
+                prev = None
+                for stage, count in p.stage_line_counts.items():
+                    if prev is not None:
+                        removed = prev - count
+                        tag = f"(−{removed})" if removed > 0 else "(no change)"
+                    else:
+                        tag = "(raw detection)"
+                    lines.append(row(f"{stage}:", f"{count:>4}  {tag}"))
+                    prev = count
+                lines.append("")
+
+        lines += [divider("═"), ""]
+
+        path = run_dir / "processing_results.txt"
+        path.write_text("\n".join(lines))
+        logger.debug("Wrote %s", path)
+
     def _write_intermediates(self, result: PipelineResult, run_dir: Path) -> None:
         if result.binary_image is not None:
             cv2.imwrite(str(run_dir / "binary.png"), result.binary_image)
         if result.normalized_display is not None:
             cv2.imwrite(str(run_dir / "normalized_display.png"), result.normalized_display)
+
+
+# ------------------------------------------------------------------ #
+# Private helpers                                                     #
+# ------------------------------------------------------------------ #
+
+def _format_duration(provenance) -> str:
+    from datetime import datetime, timezone
+    try:
+        start = datetime.fromisoformat(provenance.processing_start_utc)
+        end = datetime.fromisoformat(provenance.processing_end_utc)
+        seconds = (end - start).total_seconds()
+        if seconds < 60:
+            return f"{seconds:.1f}s"
+        return f"{int(seconds // 60)}m {int(seconds % 60)}s"
+    except Exception:
+        return "—"
 
 
 # ------------------------------------------------------------------ #

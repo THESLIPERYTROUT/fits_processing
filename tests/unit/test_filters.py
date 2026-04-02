@@ -183,6 +183,7 @@ class TestLengthFilter:
         assert len(result) == 2
 
     def test_keeps_all_equal_length_lines(self):
+        # Fewer than 6 lines → guard returns all unchanged
         lines = _lines((0, 0, 50, 0), (0, 100, 50, 100), (0, 200, 50, 200))
         result = length_filter(lines, FilterParams(length_fraction=0.8))
         assert len(result) == 3
