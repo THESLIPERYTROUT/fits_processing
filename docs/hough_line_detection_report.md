@@ -35,6 +35,8 @@ height of the peak is the number of foreground pixels that voted for that line
 
 Lines with vote count ≥ `threshold` are accepted as detections.
 
+DESMOS visulization: https://www.desmos.com/calculator/igqytnlqrx
+
 ### 2.2 Probabilistic Hough Transform (`HoughLinesP`)
 
 The standard transform processes every foreground pixel, which is O(N × A) where
@@ -296,3 +298,4 @@ most common cause of slow Hough performance.
 
 - OpenCV documentation: `cv2.HoughLinesP`
   https://docs.opencv.org/4.x/d9/db0/tutorial_hough_lines.html
+  
