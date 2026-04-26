@@ -3,6 +3,7 @@ Streak-related data types.
 """
 from __future__ import annotations
 
+import math
 from dataclasses import dataclass
 from typing import Optional
 
@@ -42,3 +43,28 @@ class FilterStageSnapshot:
     lines_before: int
     lines_after: int
     lines: np.ndarray  # shape (N, 1, 4), dtype int32
+
+
+@dataclass(frozen=True)
+class StreakSNR:
+    """
+    Signal-to-noise ratio estimate for a single detected streak.
+
+    Computed via aperture photometry on the raw float32 image:
+      SNR = (mean_on - median_off) / (MAD_off * 1.4826)
+
+    ``snr``, ``signal``, and ``noise`` are NaN when there are fewer
+    than ``min_off_pixels`` background pixels available (e.g. the
+    streak runs very close to the image edge).
+    """
+
+    streak_index: int            # index into PipelineResult.detected_lines
+    snr: float                   # signal / noise; NaN if estimation failed
+    signal: float                # mean on-streak excess above background (ADU)
+    noise: float                 # robust local noise (MAD-based sigma, ADU)
+    n_on_pixels: int             # pixels sampled in the on-streak aperture
+    n_off_pixels: int            # pixels sampled in the off-streak aperture
+
+    @property
+    def is_valid(self) -> bool:
+        return not math.isnan(self.snr)
