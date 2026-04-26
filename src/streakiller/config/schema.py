@@ -37,6 +37,10 @@ from streakiller.config.defaults import (
     ADAPTIVE_LOCAL_MIN_TILE_PIXELS,
     ADAPTIVE_LOCAL_MORPH_KERNEL,
     ADAPTIVE_LOCAL_GAUSSIAN_KERNEL_SIZE,
+    SNR_HALF_WIDTH_PX,
+    SNR_OFF_GAP_PX,
+    SNR_OFF_WIDTH_PX,
+    SNR_MIN_OFF_PIXELS,
 )
 
 # Keys in old config.json that were misspelled.  Maps old_key -> canonical_key.
@@ -136,6 +140,26 @@ class BackgroundMethod:
 
 
 @dataclass
+class SnrParams:
+    """
+    Aperture-photometry parameters for per-streak SNR estimation.
+
+    For each detected streak the estimator samples two rectangular apertures
+    perpendicular to the streak axis:
+
+      |← off_width →|← off_gap →|← 2*half_width+1 →|← off_gap →|← off_width →|
+                                        (streak)
+
+    SNR = (mean_on − median_off) / (MAD_off × 1.4826)
+    """
+
+    half_width_px: int = SNR_HALF_WIDTH_PX
+    off_gap_px: int = SNR_OFF_GAP_PX
+    off_width_px: int = SNR_OFF_WIDTH_PX
+    min_off_pixels: int = SNR_MIN_OFF_PIXELS
+
+
+@dataclass
 class OutputOptions:
     save_intermediate_images: bool = False
     save_text_summary: bool = True
@@ -157,6 +181,7 @@ class PipelineConfig:
     background_params: BackgroundParams = field(default_factory=BackgroundParams)
     filter_params: FilterParams = field(default_factory=FilterParams)
     hough_params: HoughParams = field(default_factory=HoughParams)
+    snr_params: SnrParams = field(default_factory=SnrParams)
     output_options: OutputOptions = field(default_factory=OutputOptions)
     tle_cache_ttl_hours: int = 24
 
@@ -204,6 +229,24 @@ class PipelineConfig:
         if bp.adaptive_local_snr_threshold <= 0:
             raise ConfigError(
                 f"background_params.adaptive_local_snr_threshold must be > 0, got {bp.adaptive_local_snr_threshold}"
+            )
+
+        sp = self.snr_params
+        if sp.half_width_px < 1:
+            raise ConfigError(
+                f"snr_params.half_width_px must be >= 1, got {sp.half_width_px}"
+            )
+        if sp.off_gap_px < 0:
+            raise ConfigError(
+                f"snr_params.off_gap_px must be >= 0, got {sp.off_gap_px}"
+            )
+        if sp.off_width_px < 1:
+            raise ConfigError(
+                f"snr_params.off_width_px must be >= 1, got {sp.off_width_px}"
+            )
+        if sp.min_off_pixels < 1:
+            raise ConfigError(
+                f"snr_params.min_off_pixels must be >= 1, got {sp.min_off_pixels}"
             )
 
     # ------------------------------------------------------------------ #

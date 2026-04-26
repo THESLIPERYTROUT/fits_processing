@@ -44,3 +44,9 @@ ADAPTIVE_LOCAL_SNR_THRESHOLD = 2.0    # min local SNR (residual / local_sigma) f
 ADAPTIVE_LOCAL_MIN_TILE_PIXELS = 10   # min surviving pixels for a tile to be considered valid
 ADAPTIVE_LOCAL_MORPH_KERNEL = 3       # morphological close kernel size (pixels)
 ADAPTIVE_LOCAL_GAUSSIAN_KERNEL_SIZE = 51  # Gaussian high-pass pre-filter kernel (must be odd)
+
+# --- Per-streak SNR estimation (aperture photometry on raw image) ---
+SNR_HALF_WIDTH_PX = 3      # on-streak aperture half-width: samples ±N pixels from the centerline
+SNR_OFF_GAP_PX = 3         # gap between on-streak edge and background band (pixels)
+SNR_OFF_WIDTH_PX = 10      # width of each background band on either side of the streak (pixels)
+SNR_MIN_OFF_PIXELS = 20    # minimum background pixels required; fewer yields NaN SNR

@@ -69,8 +69,11 @@ class StreakPipeline:
             else:
                 self._background = GaussianBlurEstimator()
 
+        from streakiller.snr import StreakSNREstimator
+
         self._detector = StreakDetector(config.hough_params)
         self._filter_chain = FilterChain.from_config(config.enabled_line_filters)
+        self._snr_estimator = StreakSNREstimator()
         self._writer = output_writer
 
     @classmethod
@@ -142,6 +145,16 @@ class StreakPipeline:
         final_lines, snapshots = self._filter_chain.run(detection.lines, cfg.filter_params)
         img_log.info("Final streak count: %d", len(final_lines))
 
+        # 6b: Per-streak SNR estimation on the raw image
+        snr_estimates = self._snr_estimator.estimate_all(image.data, final_lines, cfg.snr_params)
+        if snr_estimates:
+            valid = [s for s in snr_estimates if s.is_valid]
+            img_log.info(
+                "SNR estimation: %d/%d streaks have valid SNR (median SNR=%.1f)",
+                len(valid), len(snr_estimates),
+                float(np.median([s.snr for s in valid])) if valid else float("nan"),
+            )
+
         end_utc = datetime.now(tz=timezone.utc).isoformat()
 
         stage_counts: dict[str, int] = {"initial_detected": len(detection.lines)}
@@ -165,6 +178,7 @@ class StreakPipeline:
             initial_detected_lines=detection.lines.copy(),
             detected_lines=final_lines,
             filter_snapshots=snapshots,
+            snr_estimates=snr_estimates,
             normalized_display=detection.normalized_display,
             binary_image=detection.binary_image,
             provenance=provenance,
