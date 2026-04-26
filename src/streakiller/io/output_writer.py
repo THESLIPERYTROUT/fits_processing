@@ -87,15 +87,24 @@ class LocalOutputWriter:
     # ------------------------------------------------------------------ #
 
     def _write_csv(self, result: PipelineResult, run_dir: Path) -> None:
+        snr_by_index = {s.streak_index: s for s in result.snr_estimates}
         path = run_dir / "streaks.csv"
         with open(path, "w", newline="") as fh:
             writer = csv.writer(fh)
-            writer.writerow(["label", "x1", "y1", "x2", "y2", "midpoint_x", "midpoint_y"])
+            writer.writerow([
+                "label", "x1", "y1", "x2", "y2",
+                "midpoint_x", "midpoint_y",
+                "snr", "signal_adu", "noise_adu",
+            ])
             for i, line in enumerate(result.detected_lines):
                 x1, y1, x2, y2 = line[0]
+                snr = snr_by_index.get(i)
                 writer.writerow([
                     str(i + 1), x1, y1, x2, y2,
                     (x1 + x2) / 2, (y1 + y2) / 2,
+                    f"{snr.snr:.2f}" if snr and snr.is_valid else "",
+                    f"{snr.signal:.1f}" if snr and snr.is_valid else "",
+                    f"{snr.noise:.2f}" if snr and snr.is_valid else "",
                 ])
         logger.debug("Wrote %s", path)
 
@@ -139,11 +148,23 @@ class LocalOutputWriter:
     def _write_provenance(self, result: PipelineResult, run_dir: Path) -> None:
         if result.provenance is None:
             return
+        snr_records = [
+            {
+                "streak_index": s.streak_index,
+                "snr": None if not s.is_valid else round(s.snr, 3),
+                "signal_adu": None if not s.is_valid else round(s.signal, 2),
+                "noise_adu": None if not s.is_valid else round(s.noise, 3),
+                "n_on_pixels": s.n_on_pixels,
+                "n_off_pixels": s.n_off_pixels,
+            }
+            for s in result.snr_estimates
+        ]
         record: dict = {
             "source_file": str(result.source_path),
             "streak_count": result.streak_count,
             "error": result.error,
             **{k: v for k, v in vars(result.provenance).items()},
+            "snr_estimates": snr_records,
         }
         path = run_dir / "processing_results.json"
         path.write_text(json.dumps(record, indent=2, default=str), encoding="utf-8")
@@ -185,19 +206,22 @@ class LocalOutputWriter:
 
         # Per-streak table
         if result.streak_count > 0:
+            snr_by_index = {s.streak_index: s for s in result.snr_estimates}
             lines += [
                 divider(),
                 "  DETECTED STREAKS",
                 divider(),
                 "",
-                f"  {'#':<5} {'Start (x,y)':<18} {'End (x,y)':<18} {'Length (px)':<12}",
-                f"  {'─'*4} {'─'*16:<18} {'─'*16:<18} {'─'*10:<12}",
+                f"  {'#':<5} {'Start (x,y)':<18} {'End (x,y)':<18} {'Length (px)':<12} {'SNR':<8}",
+                f"  {'─'*4} {'─'*16:<18} {'─'*16:<18} {'─'*10:<12} {'─'*6:<8}",
             ]
             for i, line in enumerate(result.detected_lines):
                 x1, y1, x2, y2 = line[0]
                 length = ((x2 - x1) ** 2 + (y2 - y1) ** 2) ** 0.5
+                snr = snr_by_index.get(i)
+                snr_str = f"{snr.snr:>6.1f}" if snr and snr.is_valid else "   N/A"
                 lines.append(
-                    f"  {i+1:<5} ({x1:>5}, {y1:>5})     ({x2:>5}, {y2:>5})     {length:>8.1f}"
+                    f"  {i+1:<5} ({x1:>5}, {y1:>5})     ({x2:>5}, {y2:>5})     {length:>8.1f}     {snr_str}"
                 )
             lines.append("")
 

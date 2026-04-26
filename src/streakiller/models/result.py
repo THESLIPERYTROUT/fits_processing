@@ -9,7 +9,7 @@ from typing import Optional
 
 import numpy as np
 
-from streakiller.models.streak import FilterStageSnapshot
+from streakiller.models.streak import FilterStageSnapshot, StreakSNR
 
 
 @dataclass(frozen=True)
@@ -49,6 +49,7 @@ class PipelineResult:
     initial_detected_lines: np.ndarray = field(default_factory=lambda: np.empty((0, 1, 4), dtype=np.int32))
     detected_lines: np.ndarray = field(default_factory=lambda: np.empty((0, 1, 4), dtype=np.int32))
     filter_snapshots: list[FilterStageSnapshot] = field(default_factory=list)
+    snr_estimates: list[StreakSNR] = field(default_factory=list)
     normalized_display: Optional[np.ndarray] = None   # uint8 (H, W) for visualisation
     binary_image: Optional[np.ndarray] = None         # uint8 (H, W) Hough input
     provenance: Optional[Provenance] = None
