@@ -5,7 +5,7 @@
     "image_calibration": false,
     "cailbration_dir": "calibration_frames",
     "estimated_streak_length_enabled": false,
-    "default_minlinelength": 30,
+    "default_minlinelength": 40,
 
     "enabled_line_filters":
     {
