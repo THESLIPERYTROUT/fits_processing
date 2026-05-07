@@ -50,6 +50,7 @@ class StreakPipeline:
             AdaptiveLocalEstimator,
         )
         from streakiller.detection.detector import StreakDetector
+        from streakiller.detection.fft_detector import FftCorrelationDetector
         from streakiller.filters.chain import FilterChain
 
         self._config = config
@@ -71,7 +72,10 @@ class StreakPipeline:
 
         from streakiller.snr import StreakSNREstimator
 
-        self._detector = StreakDetector(config.hough_params)
+        if config.detection_method.fft_correlation:
+            self._detector = FftCorrelationDetector(config.fft_detector_params)
+        else:
+            self._detector = StreakDetector(config.hough_params)
         self._filter_chain = FilterChain.from_config(config.enabled_line_filters)
         self._snr_estimator = StreakSNREstimator()
         self._writer = output_writer
@@ -168,6 +172,7 @@ class StreakPipeline:
             processing_start_utc=start_utc,
             processing_end_utc=end_utc,
             background_method_used=cfg.background_detection_method.active_name(),
+            detection_method_used=cfg.detection_method.active_name(),
             min_line_length_used=min_line_length,
             hough_threshold_used=cfg.hough_params.threshold,
             stage_line_counts=stage_counts,
