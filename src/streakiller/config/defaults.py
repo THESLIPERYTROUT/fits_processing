@@ -50,3 +50,15 @@ SNR_HALF_WIDTH_PX = 3      # on-streak aperture half-width: samples ±N pixels f
 SNR_OFF_GAP_PX = 3         # gap between on-streak edge and background band (pixels)
 SNR_OFF_WIDTH_PX = 10      # width of each background band on either side of the streak (pixels)
 SNR_MIN_OFF_PIXELS = 20    # minimum background pixels required; fewer yields NaN SNR
+
+# --- FFT Correlation Detector (Streak_Detector.py) ---
+FFT_THRESHOLD_SIGMA = 0.75       # correlation peak threshold: median + N * std
+FFT_MIN_DISTANCE = 10            # minimum pixel distance between accepted peaks
+FFT_MIN_TEMPLATE_AREA = 40       # minimum pixels for a feature to be a template candidate
+FFT_TEMPLATE_PADDING = 10        # pixels of context padding around the template cutout
+FFT_MAX_WIDTH_STD = 4.0          # max PCA width std; rejects blobs wider than N px sigma
+FFT_MIN_ELONGATION = 3.0         # minimum length/width ratio; rejects near-circular objects
+FFT_PERCENTILE_THRESHOLD = 99.0  # image percentile used to build the initial binary mask
+FFT_TEMPLATE_EDGE_MARGIN = 15    # template candidates closer than N px to the image edge are rejected
+FFT_STREAK_EDGE_MARGIN = 5       # detected streaks closer than N px to the image edge are rejected
+FFT_PROMINENCE_FRACTION = 0.5    # reject peaks below this fraction of the maximum correlation score

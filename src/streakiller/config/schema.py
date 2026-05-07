@@ -41,6 +41,16 @@ from streakiller.config.defaults import (
     SNR_OFF_GAP_PX,
     SNR_OFF_WIDTH_PX,
     SNR_MIN_OFF_PIXELS,
+    FFT_THRESHOLD_SIGMA,
+    FFT_MIN_DISTANCE,
+    FFT_MIN_TEMPLATE_AREA,
+    FFT_TEMPLATE_PADDING,
+    FFT_MAX_WIDTH_STD,
+    FFT_MIN_ELONGATION,
+    FFT_PERCENTILE_THRESHOLD,
+    FFT_TEMPLATE_EDGE_MARGIN,
+    FFT_STREAK_EDGE_MARGIN,
+    FFT_PROMINENCE_FRACTION,
 )
 
 # Keys in old config.json that were misspelled.  Maps old_key -> canonical_key.
@@ -160,6 +170,46 @@ class SnrParams:
 
 
 @dataclass
+class FftDetectorParams:
+    """
+    Parameters for the FFT cross-correlation streak detector.
+
+    See defaults.py for the rationale behind each value.
+    """
+
+    threshold_sigma: float = FFT_THRESHOLD_SIGMA
+    min_distance: int = FFT_MIN_DISTANCE
+    min_template_area: int = FFT_MIN_TEMPLATE_AREA
+    template_padding: int = FFT_TEMPLATE_PADDING
+    max_width_std: float = FFT_MAX_WIDTH_STD
+    min_elongation: float = FFT_MIN_ELONGATION
+    percentile_threshold: float = FFT_PERCENTILE_THRESHOLD
+    template_edge_margin: int = FFT_TEMPLATE_EDGE_MARGIN
+    streak_edge_margin: int = FFT_STREAK_EDGE_MARGIN
+    prominence_fraction: float = FFT_PROMINENCE_FRACTION
+
+
+@dataclass
+class DetectionMethod:
+    """Selects which streak detector is active.  Exactly one must be True."""
+
+    hough: bool = True
+    fft_correlation: bool = False
+
+    @classmethod
+    def from_dict(cls, raw: dict) -> "DetectionMethod":
+        return cls(
+            hough=raw.get("hough", True),
+            fft_correlation=raw.get("fft_correlation", False),
+        )
+
+    def active_name(self) -> str:
+        if self.fft_correlation:
+            return "fft_correlation"
+        return "hough"
+
+
+@dataclass
 class OutputOptions:
     save_intermediate_images: bool = False
     save_text_summary: bool = True
@@ -181,6 +231,8 @@ class PipelineConfig:
     background_params: BackgroundParams = field(default_factory=BackgroundParams)
     filter_params: FilterParams = field(default_factory=FilterParams)
     hough_params: HoughParams = field(default_factory=HoughParams)
+    detection_method: DetectionMethod = field(default_factory=DetectionMethod)
+    fft_detector_params: FftDetectorParams = field(default_factory=FftDetectorParams)
     snr_params: SnrParams = field(default_factory=SnrParams)
     output_options: OutputOptions = field(default_factory=OutputOptions)
     tle_cache_ttl_hours: int = 24
@@ -203,6 +255,16 @@ class PipelineConfig:
             raise ConfigError(
                 "background_detection_method: exactly one method must be enabled, "
                 f"but got {enabled_count} enabled"
+            )
+
+        dm = self.detection_method
+        det_count = sum([dm.hough, dm.fft_correlation])
+        if det_count == 0:
+            raise ConfigError("detection_method: at least one method must be enabled")
+        if det_count > 1:
+            raise ConfigError(
+                "detection_method: exactly one method must be enabled, "
+                f"but got {det_count} enabled"
             )
 
         if self.estimated_streak_length_enabled and self.norad_id is None:
@@ -291,6 +353,10 @@ class PipelineConfig:
             background_params=BackgroundParams(),
             filter_params=FilterParams(),
             hough_params=HoughParams(),
+            detection_method=DetectionMethod.from_dict(
+                raw.get("detection_method", {})
+            ),
+            fft_detector_params=FftDetectorParams(),
             output_options=OutputOptions(
                 save_intermediate_images=raw.get("save_intermediate_images", False),
                 save_text_summary=raw.get("save_text_summary", True),

@@ -27,6 +27,7 @@ class Provenance:
     processing_start_utc: str          # ISO 8601
     processing_end_utc: str            # ISO 8601
     background_method_used: str
+    detection_method_used: str         # "hough" or "fft_correlation"
     min_line_length_used: float
     hough_threshold_used: int
     stage_line_counts: dict            # {"initial_detected": 42, "midpoint_filter": 31, "final": 12, ...}
