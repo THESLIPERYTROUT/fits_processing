@@ -211,8 +211,13 @@ class StreakPipeline:
             img_log.info("Applying calibration")
             return self._calibration.apply(image)
         else:
-            img_log.info("Applying hot-pixel removal (threshold=%d)", cfg.hotpixel_threshold)
-            return image.derive(self._hotpixel_removal(image.data, cfg.hotpixel_threshold))
+            img_log.info(
+                "Applying hot-pixel removal (abs_threshold=%d, sigma=%.1f)",
+                cfg.hotpixel_threshold, cfg.hotpixel_params.threshold_sigma,
+            )
+            return image.derive(
+                self._hotpixel_removal(image.data, cfg.hotpixel_threshold, cfg.hotpixel_params)
+            )
 
     def _resolve_min_line_length(self, image: FitsImage, img_log) -> float:
         cfg = self._config
@@ -247,15 +252,63 @@ class StreakPipeline:
         return length
 
     @staticmethod
-    def _hotpixel_removal(data: np.ndarray, threshold: float) -> np.ndarray:
+    def _hotpixel_removal(data: np.ndarray, threshold: float, params=None) -> np.ndarray:
+        from scipy.ndimage import median_filter, label
+
+        # --- Statistical threshold -----------------------------------------
+        # Compute a robust noise floor and flag pixels that are both above the
+        # absolute ADU floor AND statistically anomalous (N·σ_MAD above median).
+        # Using both gates prevents destroying bright-but-legitimate features on
+        # images where the sky background itself is near the ADU floor.
+        med = float(np.median(data))
+        mad_sigma = 1.4826 * float(np.median(np.abs(data - med)))
+
+        if params is not None and params.threshold_sigma > 0 and mad_sigma > 0:
+            stat_threshold = med + params.threshold_sigma * mad_sigma
+            effective_threshold = max(threshold, stat_threshold)
+        else:
+            effective_threshold = float(threshold)
+
+        hot_mask = data > effective_threshold
+
+        if not np.any(hot_mask):
+            return data.copy()
+
+        # --- Isolation check ------------------------------------------------
+        # Connected regions of hot pixels larger than max_cluster_size are
+        # preserved: they are more likely to be bright stars, cosmic-ray tracks,
+        # or saturated columns than isolated sensor defects.
+        if params is not None:
+            labeled, n_components = label(hot_mask)
+            if n_components:
+                from scipy.ndimage import sum as ndimage_sum
+                sizes = np.array(
+                    ndimage_sum(hot_mask, labeled, range(1, n_components + 1))
+                )
+                large_ids = np.where(sizes > params.max_cluster_size)[0] + 1
+                if large_ids.size:
+                    large_mask = np.isin(labeled, large_ids)
+                    hot_mask[large_mask] = False
+
+        if not np.any(hot_mask):
+            return data.copy()
+
+        # --- Vectorized replacement -----------------------------------------
+        # Pre-compute a median-filtered version of the whole image; for isolated
+        # hot pixels the neighbourhood is dominated by clean surrounding pixels,
+        # so self-contamination is negligible.
+        neighborhood = params.neighborhood_size if params is not None else 5
+        replacement = median_filter(data, size=neighborhood, mode="reflect")
+
         cleaned = data.copy()
-        hot_y, hot_x = np.where(cleaned > threshold)
-        for y, x in zip(hot_y, hot_x):
-            y_min, y_max = max(y - 1, 0), min(y + 2, cleaned.shape[0])
-            x_min, x_max = max(x - 1, 0), min(x + 2, cleaned.shape[1])
-            cleaned[y, x] = np.median(cleaned[y_min:y_max, x_min:x_max])
-        if len(hot_y):
-            logger.debug("Hot-pixel removal: %d pixels replaced", len(hot_y))
+        cleaned[hot_mask] = replacement[hot_mask]
+
+        n_replaced = int(np.sum(hot_mask))
+        logger.debug(
+            "Hot-pixel removal: %d pixels replaced (threshold=%.0f, sigma=%.1f)",
+            n_replaced, effective_threshold,
+            params.threshold_sigma if params is not None else 0.0,
+        )
         return cleaned
 
     def _config_snapshot(self) -> dict:

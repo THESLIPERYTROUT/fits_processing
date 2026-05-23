@@ -32,7 +32,10 @@ MAX_LENGTH_FACTOR = 3.0           # upper cap: drop lines longer than this multi
 COLINEAR_ORIENTATION_TOL = 1.0    # cross-product magnitude below which two segments are collinear
 
 # --- Hot pixel removal (streakprocessing.py:685) ---
-HOTPIXEL_THRESHOLD = 5000         # ADU; pixels above this are considered hot
+HOTPIXEL_THRESHOLD = 5000         # ADU; absolute floor — pixels above this are always candidates
+HOTPIXEL_SIGMA = 10.0             # statistical: flag pixels > median + N * MAD-sigma
+HOTPIXEL_MAX_CLUSTER_SIZE = 4     # clusters larger than this are preserved (likely real feature)
+HOTPIXEL_NEIGHBORHOOD = 5         # replacement window size (must be odd)
 
 # --- Image normalisation for display (streakprocessing.py:83-88) ---
 NORM_PERCENTILE_LOW = 2.0         # lower percentile clip
