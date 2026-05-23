@@ -51,6 +51,10 @@ from streakiller.config.defaults import (
     FFT_TEMPLATE_EDGE_MARGIN,
     FFT_STREAK_EDGE_MARGIN,
     FFT_PROMINENCE_FRACTION,
+    PEAK_HOUGH_THRESHOLD_SIGMA,
+    PEAK_HOUGH_GAUSSIAN_KERNEL_SIZE,
+    PEAK_HOUGH_ENDPOINT_WALK_SIGMA,
+    PEAK_HOUGH_ENDPOINT_GAP_TOLERANCE,
 )
 
 # Keys in old config.json that were misspelled.  Maps old_key -> canonical_key.
@@ -72,6 +76,18 @@ class HoughParams:
     max_line_gap: int = HOUGH_MAX_LINE_GAP
     rho: float = HOUGH_RHO
     theta_deg: float = HOUGH_THETA_DEG
+
+
+@dataclass
+class PeakHoughParams:
+    hough_threshold: int      = HOUGH_THRESHOLD
+    max_line_gap: int         = HOUGH_MAX_LINE_GAP
+    rho: float                = HOUGH_RHO
+    theta_deg: float          = HOUGH_THETA_DEG
+    threshold_sigma: float    = PEAK_HOUGH_THRESHOLD_SIGMA
+    gaussian_kernel_size: int = PEAK_HOUGH_GAUSSIAN_KERNEL_SIZE
+    endpoint_walk_sigma: float  = PEAK_HOUGH_ENDPOINT_WALK_SIGMA
+    endpoint_gap_tolerance: int = PEAK_HOUGH_ENDPOINT_GAP_TOLERANCE
 
 
 @dataclass
@@ -195,17 +211,21 @@ class DetectionMethod:
 
     hough: bool = True
     fft_correlation: bool = False
+    peak_hough: bool = False
 
     @classmethod
     def from_dict(cls, raw: dict) -> "DetectionMethod":
         return cls(
             hough=raw.get("hough", True),
             fft_correlation=raw.get("fft_correlation", False),
+            peak_hough=raw.get("peak_hough", False),
         )
 
     def active_name(self) -> str:
         if self.fft_correlation:
             return "fft_correlation"
+        if self.peak_hough:
+            return "peak_hough"
         return "hough"
 
 
@@ -233,6 +253,7 @@ class PipelineConfig:
     hough_params: HoughParams = field(default_factory=HoughParams)
     detection_method: DetectionMethod = field(default_factory=DetectionMethod)
     fft_detector_params: FftDetectorParams = field(default_factory=FftDetectorParams)
+    peak_hough_params: PeakHoughParams = field(default_factory=PeakHoughParams)
     snr_params: SnrParams = field(default_factory=SnrParams)
     output_options: OutputOptions = field(default_factory=OutputOptions)
     tle_cache_ttl_hours: int = 24
@@ -258,7 +279,7 @@ class PipelineConfig:
             )
 
         dm = self.detection_method
-        det_count = sum([dm.hough, dm.fft_correlation])
+        det_count = sum([dm.hough, dm.fft_correlation, dm.peak_hough])
         if det_count == 0:
             raise ConfigError("detection_method: at least one method must be enabled")
         if det_count > 1:
@@ -275,6 +296,20 @@ class PipelineConfig:
         if self.hough_params.threshold < 1:
             raise ConfigError(
                 f"hough_params.threshold must be >= 1, got {self.hough_params.threshold}"
+            )
+
+        php = self.peak_hough_params
+        if php.threshold_sigma <= 0:
+            raise ConfigError(
+                f"peak_hough_params.threshold_sigma must be > 0, got {php.threshold_sigma}"
+            )
+        if php.endpoint_walk_sigma < 0:
+            raise ConfigError(
+                f"peak_hough_params.endpoint_walk_sigma must be >= 0, got {php.endpoint_walk_sigma}"
+            )
+        if php.endpoint_gap_tolerance < 0:
+            raise ConfigError(
+                f"peak_hough_params.endpoint_gap_tolerance must be >= 0, got {php.endpoint_gap_tolerance}"
             )
 
         fp = self.filter_params

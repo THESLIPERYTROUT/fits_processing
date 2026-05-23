@@ -62,3 +62,9 @@ FFT_PERCENTILE_THRESHOLD = 99.0  # image percentile used to build the initial bi
 FFT_TEMPLATE_EDGE_MARGIN = 15    # template candidates closer than N px to the image edge are rejected
 FFT_STREAK_EDGE_MARGIN = 5       # detected streaks closer than N px to the image edge are rejected
 FFT_PROMINENCE_FRACTION = 0.5    # reject peaks below this fraction of the maximum correlation score
+
+# --- Peak-Hough detector ---
+PEAK_HOUGH_THRESHOLD_SIGMA = 3.0        # binary mask: keep pixels above N·σ_global(residual)
+PEAK_HOUGH_GAUSSIAN_KERNEL_SIZE = 51    # high-pass background kernel (must be odd)
+PEAK_HOUGH_ENDPOINT_WALK_SIGMA = 1.5    # walk-out floor = N × σ_local at endpoint
+PEAK_HOUGH_ENDPOINT_GAP_TOLERANCE = 3   # consecutive below-floor steps before stopping
