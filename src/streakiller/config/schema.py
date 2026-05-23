@@ -23,6 +23,7 @@ from streakiller.config.defaults import (
     ENDPOINT_MIN_DISTANCE,
     ANGLE_MIN_DIFF_DEG,
     LENGTH_FRACTION,
+    MAX_LENGTH_FACTOR,
     COLINEAR_ORIENTATION_TOL,
     GAUSSIAN_KERNEL_SIZE,
     GAUSSIAN_SIGMA_LADDER,
@@ -37,6 +38,14 @@ from streakiller.config.defaults import (
     ADAPTIVE_LOCAL_MIN_TILE_PIXELS,
     ADAPTIVE_LOCAL_MORPH_KERNEL,
     ADAPTIVE_LOCAL_GAUSSIAN_KERNEL_SIZE,
+    PER_ROW_MEDIAN_BINS,
+    PER_ROW_MEDIAN_DEGREE,
+    PER_ROW_MEDIAN_SMOOTH_SIGMA,
+    PER_ROW_MEDIAN_ROW_WINDOW,
+    PER_ROW_MEDIAN_SIGMA_MULT,
+    PER_ROW_MEDIAN_FILTER_SIZE,
+    PER_ROW_MEDIAN_MIN_COMPONENT_PIXELS,
+    PER_ROW_MEDIAN_MORPH_KERNEL,
     SNR_HALF_WIDTH_PX,
     SNR_OFF_GAP_PX,
     SNR_OFF_WIDTH_PX,
@@ -55,6 +64,19 @@ from streakiller.config.defaults import (
     PEAK_HOUGH_GAUSSIAN_KERNEL_SIZE,
     PEAK_HOUGH_ENDPOINT_WALK_SIGMA,
     PEAK_HOUGH_ENDPOINT_GAP_TOLERANCE,
+    PEAK_HOUGH_MEDIAN_BINS,
+    PEAK_HOUGH_POLYNOMIAL_DEGREE,
+    PEAK_HOUGH_SMOOTH_SIGMA,
+    PEAK_HOUGH_THRESHOLD_SIGMA,
+    PEAK_HOUGH_THRESHOLD,
+    PEAK_HOUGH_MAX_LINE_GAP,
+    PEAK_HOUGH_RHO,
+    PEAK_HOUGH_THETA_DEG,
+    PEAK_HOUGH_DILATION_KERNEL,
+    PEAK_HOUGH_PEAK_MODE,
+    PEAK_HOUGH_LOCAL_WINDOW,
+    PEAK_HOUGH_LOCAL_MAX_SIZE,
+    PEAK_HOUGH_GLOBAL_FLOOR_SIGMA,
 )
 
 # Keys in old config.json that were misspelled.  Maps old_key -> canonical_key.
@@ -96,6 +118,7 @@ class FilterParams:
     endpoint_min_distance: float = ENDPOINT_MIN_DISTANCE
     angle_min_diff_deg: float = ANGLE_MIN_DIFF_DEG
     length_fraction: float = LENGTH_FRACTION
+    max_length_factor: float = MAX_LENGTH_FACTOR
     colinear_orientation_tol: float = COLINEAR_ORIENTATION_TOL
 
 
@@ -113,6 +136,14 @@ class BackgroundParams:
     adaptive_local_min_tile_pixels: int = ADAPTIVE_LOCAL_MIN_TILE_PIXELS
     adaptive_local_morph_kernel: int = ADAPTIVE_LOCAL_MORPH_KERNEL
     adaptive_local_gaussian_kernel_size: int = ADAPTIVE_LOCAL_GAUSSIAN_KERNEL_SIZE
+    per_row_median_bins: int = PER_ROW_MEDIAN_BINS
+    per_row_median_degree: int = PER_ROW_MEDIAN_DEGREE
+    per_row_median_smooth_sigma: float = PER_ROW_MEDIAN_SMOOTH_SIGMA
+    per_row_median_row_window: int = PER_ROW_MEDIAN_ROW_WINDOW
+    per_row_median_sigma_mult: float = PER_ROW_MEDIAN_SIGMA_MULT
+    per_row_median_filter_size: int = PER_ROW_MEDIAN_FILTER_SIZE
+    per_row_median_min_component_pixels: int = PER_ROW_MEDIAN_MIN_COMPONENT_PIXELS
+    per_row_median_morph_kernel: int = PER_ROW_MEDIAN_MORPH_KERNEL
 
 
 @dataclass
@@ -142,6 +173,7 @@ class BackgroundMethod:
     gaussian_blur: bool = True
     double_pass: bool = False
     adaptive_local: bool = False
+    per_row_median_curve: bool = False
 
     @classmethod
     def from_dict(cls, raw: dict) -> "BackgroundMethod":
@@ -151,6 +183,7 @@ class BackgroundMethod:
             gaussian_blur=remapped.get("gaussian_blur", True),
             double_pass=remapped.get("double_pass", False),
             adaptive_local=remapped.get("adaptive_local", False),
+            per_row_median_curve=remapped.get("per_row_median_curve", False),
         )
 
     def active_name(self) -> str:
@@ -162,6 +195,8 @@ class BackgroundMethod:
             return "double_pass"
         if self.adaptive_local:
             return "adaptive_local"
+        if self.per_row_median_curve:
+            return "per_row_median_curve"
         return "gaussian_blur"  # fallback, validate() will catch multiple-enabled
 
 
@@ -206,6 +241,31 @@ class FftDetectorParams:
 
 
 @dataclass
+class PeakHoughParams:
+    """
+    Parameters for row-peak detection followed by HoughLinesP.
+
+    This detector fits a smooth median-derived baseline to every row, detects
+    positive peaks in each row residual, builds a sparse peak mask, then runs
+    probabilistic Hough line detection on that mask.
+    """
+
+    median_bins: int = PEAK_HOUGH_MEDIAN_BINS
+    polynomial_degree: int = PEAK_HOUGH_POLYNOMIAL_DEGREE
+    smooth_sigma: float = PEAK_HOUGH_SMOOTH_SIGMA
+    threshold_sigma: float = PEAK_HOUGH_THRESHOLD_SIGMA
+    hough_threshold: int = PEAK_HOUGH_THRESHOLD
+    max_line_gap: int = PEAK_HOUGH_MAX_LINE_GAP
+    rho: float = PEAK_HOUGH_RHO
+    theta_deg: float = PEAK_HOUGH_THETA_DEG
+    dilation_kernel: int = PEAK_HOUGH_DILATION_KERNEL
+    peak_mode: str = PEAK_HOUGH_PEAK_MODE
+    local_window: int = PEAK_HOUGH_LOCAL_WINDOW
+    local_max_size: int = PEAK_HOUGH_LOCAL_MAX_SIZE
+    global_floor_sigma: float = PEAK_HOUGH_GLOBAL_FLOOR_SIGMA
+
+
+@dataclass
 class DetectionMethod:
     """Selects which streak detector is active.  Exactly one must be True."""
 
@@ -215,13 +275,18 @@ class DetectionMethod:
 
     @classmethod
     def from_dict(cls, raw: dict) -> "DetectionMethod":
+        hough_default = not raw.get("fft_correlation", False) and not raw.get(
+            "peak_hough", False
+        )
         return cls(
-            hough=raw.get("hough", True),
+            hough=raw.get("hough", hough_default),
             fft_correlation=raw.get("fft_correlation", False),
             peak_hough=raw.get("peak_hough", False),
         )
 
     def active_name(self) -> str:
+        if self.peak_hough:
+            return "peak_hough"
         if self.fft_correlation:
             return "fft_correlation"
         if self.peak_hough:
@@ -271,7 +336,13 @@ class PipelineConfig:
             )
 
         bg = self.background_detection_method
-        enabled_count = sum([bg.simple_median, bg.gaussian_blur, bg.double_pass, bg.adaptive_local])
+        enabled_count = sum([
+            bg.simple_median,
+            bg.gaussian_blur,
+            bg.double_pass,
+            bg.adaptive_local,
+            bg.per_row_median_curve,
+        ])
         if enabled_count > 1:
             raise ConfigError(
                 "background_detection_method: exactly one method must be enabled, "
@@ -296,6 +367,46 @@ class PipelineConfig:
         if self.hough_params.threshold < 1:
             raise ConfigError(
                 f"hough_params.threshold must be >= 1, got {self.hough_params.threshold}"
+            )
+        php = self.peak_hough_params
+        if php.median_bins < 2:
+            raise ConfigError(
+                f"peak_hough_params.median_bins must be >= 2, got {php.median_bins}"
+            )
+        if php.polynomial_degree < 0:
+            raise ConfigError(
+                "peak_hough_params.polynomial_degree must be >= 0, "
+                f"got {php.polynomial_degree}"
+            )
+        if php.threshold_sigma <= 0:
+            raise ConfigError(
+                f"peak_hough_params.threshold_sigma must be > 0, got {php.threshold_sigma}"
+            )
+        if php.hough_threshold < 1:
+            raise ConfigError(
+                f"peak_hough_params.hough_threshold must be >= 1, got {php.hough_threshold}"
+            )
+        if php.dilation_kernel < 1:
+            raise ConfigError(
+                f"peak_hough_params.dilation_kernel must be >= 1, got {php.dilation_kernel}"
+            )
+        if php.peak_mode not in {"row_1d", "local_2d"}:
+            raise ConfigError(
+                "peak_hough_params.peak_mode must be 'row_1d' or 'local_2d', "
+                f"got {php.peak_mode!r}"
+            )
+        if php.local_window < 3:
+            raise ConfigError(
+                f"peak_hough_params.local_window must be >= 3, got {php.local_window}"
+            )
+        if php.local_max_size < 1:
+            raise ConfigError(
+                f"peak_hough_params.local_max_size must be >= 1, got {php.local_max_size}"
+            )
+        if php.global_floor_sigma < 0:
+            raise ConfigError(
+                "peak_hough_params.global_floor_sigma must be >= 0, "
+                f"got {php.global_floor_sigma}"
             )
 
         php = self.peak_hough_params
@@ -326,6 +437,31 @@ class PipelineConfig:
         if bp.adaptive_local_snr_threshold <= 0:
             raise ConfigError(
                 f"background_params.adaptive_local_snr_threshold must be > 0, got {bp.adaptive_local_snr_threshold}"
+            )
+        if bp.per_row_median_bins < 2:
+            raise ConfigError(
+                f"background_params.per_row_median_bins must be >= 2, got {bp.per_row_median_bins}"
+            )
+        if bp.per_row_median_degree < 0:
+            raise ConfigError(
+                f"background_params.per_row_median_degree must be >= 0, got {bp.per_row_median_degree}"
+            )
+        if bp.per_row_median_row_window < 1:
+            raise ConfigError(
+                f"background_params.per_row_median_row_window must be >= 1, got {bp.per_row_median_row_window}"
+            )
+        if bp.per_row_median_sigma_mult <= 0:
+            raise ConfigError(
+                f"background_params.per_row_median_sigma_mult must be > 0, got {bp.per_row_median_sigma_mult}"
+            )
+        if bp.per_row_median_filter_size < 1:
+            raise ConfigError(
+                f"background_params.per_row_median_filter_size must be >= 1, got {bp.per_row_median_filter_size}"
+            )
+        if bp.per_row_median_min_component_pixels < 1:
+            raise ConfigError(
+                "background_params.per_row_median_min_component_pixels must be >= 1, "
+                f"got {bp.per_row_median_min_component_pixels}"
             )
 
         sp = self.snr_params
@@ -392,6 +528,7 @@ class PipelineConfig:
                 raw.get("detection_method", {})
             ),
             fft_detector_params=FftDetectorParams(),
+            peak_hough_params=PeakHoughParams(),
             output_options=OutputOptions(
                 save_intermediate_images=raw.get("save_intermediate_images", False),
                 save_text_summary=raw.get("save_text_summary", True),

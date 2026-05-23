@@ -1,8 +1,12 @@
 """
-Length filter — keeps only lines that are close to the modal streak length.
+Length filter — removes segments that are clearly too short or suspiciously long.
 
-Useful for removing segments that are much shorter or longer than the dominant
-streak family after other filters have run.
+Lower floor  : length_fraction * median  — drops short noise fragments.
+Upper cap    : max_length_factor * median — drops merged/overlapping detections
+               that HoughLinesP bridges into one abnormally long segment.
+
+The two parameters are independent so each concern can be tuned separately.
+Median is used as the reference instead of mode for stability with sparse counts.
 """
 from __future__ import annotations
 
@@ -13,10 +17,10 @@ from streakiller.config.schema import FilterParams
 
 def length_filter(lines: np.ndarray, params: FilterParams) -> np.ndarray:
     """
-    Keep lines within a symmetric band around the modal streak length.
+    Keep lines between ``length_fraction * median`` and
+    ``max_length_factor * median``.
 
-    For example, with ``params.length_fraction == 0.90``, lines are kept when
-    they fall within +/- 10% of the modal length.
+    If every line would be dropped, the original set is returned unchanged.
 
     Parameters
     ----------
@@ -29,30 +33,18 @@ def length_filter(lines: np.ndarray, params: FilterParams) -> np.ndarray:
     """
     if lines is None or len(lines) == 0:
         return np.empty((0, 1, 4), dtype=np.int32)
-    
-    elif len(lines) <= 15:
-        # With 5 or fewer lines, we can't reliably estimate a modal length, so baseline from max
-        coords = lines[:, 0, :]
-        dx = coords[:, 2] - coords[:, 0]
-        dy = coords[:, 3] - coords[:, 1]
-        lengths = np.hypot(dx, dy)
-        max_len = lengths.max()
-        kept = lines[lengths >= params.length_fraction * max_len]
-        if len(kept) == 0:  
-            return lines.astype(np.int32, copy=False)
-        return kept.astype(np.int32, copy=False)
 
     coords = lines[:, 0, :]
     dx = coords[:, 2] - coords[:, 0]
     dy = coords[:, 3] - coords[:, 1]
     lengths = np.hypot(dx, dy)
-    rounded_lengths = np.rint(lengths).astype(np.int32)
-    modal_len = float(np.bincount(rounded_lengths).argmax())
-    min_allowed = params.length_fraction * modal_len
-    max_allowed = (2.0 - params.length_fraction) * modal_len
+
+    median_len = float(np.median(lengths))
+    min_allowed = params.length_fraction * median_len
+    max_allowed = params.max_length_factor * median_len
 
     kept = lines[(lengths >= min_allowed) & (lengths <= max_allowed)]
 
     if len(kept) == 0:
-        return np.empty((0, 1, 4), dtype=np.int32)
+        return lines.astype(np.int32, copy=False)
     return kept.astype(np.int32, copy=False)

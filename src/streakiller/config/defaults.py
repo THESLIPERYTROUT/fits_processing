@@ -26,7 +26,8 @@ DOUBLE_PASS_INPAINT_RADIUS = 3    # Telea inpainting neighbourhood radius (pixel
 MIDPOINT_MIN_DISTANCE = 10.0      # pixels; remove lines whose midpoints are closer than this
 ENDPOINT_MIN_DISTANCE = 10.0      # pixels; remove lines whose endpoints are closer than this
 ANGLE_MIN_DIFF_DEG = 10.0         # degrees; deduplicate lines within this angle of each other
-LENGTH_FRACTION = 0.90            # keep lines +- this fraction of the mode of all detected line lengths
+LENGTH_FRACTION = 0.90            # lower floor: drop lines shorter than this fraction of the median length
+MAX_LENGTH_FACTOR = 3.0           # upper cap: drop lines longer than this multiple of the median (catches merged overlapping detections)
 COLINEAR_ORIENTATION_TOL = 1.0    # cross-product magnitude below which two segments are collinear
 
 # --- Hot pixel removal (streakprocessing.py:685) ---
@@ -44,6 +45,16 @@ ADAPTIVE_LOCAL_SNR_THRESHOLD = 2.0    # min local SNR (residual / local_sigma) f
 ADAPTIVE_LOCAL_MIN_TILE_PIXELS = 10   # min surviving pixels for a tile to be considered valid
 ADAPTIVE_LOCAL_MORPH_KERNEL = 3       # morphological close kernel size (pixels)
 ADAPTIVE_LOCAL_GAUSSIAN_KERNEL_SIZE = 51  # Gaussian high-pass pre-filter kernel (must be odd)
+
+# --- Background: Per-row median curve ---
+PER_ROW_MEDIAN_BINS = 80             # median samples used across each row
+PER_ROW_MEDIAN_DEGREE = 6             # polynomial degree for the row background fit
+PER_ROW_MEDIAN_SMOOTH_SIGMA = 5.0     # horizontal smoothing before sampling medians
+PER_ROW_MEDIAN_ROW_WINDOW = 9         # vertical pixels included in each median sample
+PER_ROW_MEDIAN_SIGMA_MULT = 2     # threshold = residual median + mult * MAD sigma
+PER_ROW_MEDIAN_FILTER_SIZE = 1        # optional horizontal residual median filter size
+PER_ROW_MEDIAN_MIN_COMPONENT_PIXELS = 20  # remove foreground components smaller than this
+PER_ROW_MEDIAN_MORPH_KERNEL = 3      # morphological close kernel size (pixels)
 
 # --- Per-streak SNR estimation (aperture photometry on raw image) ---
 SNR_HALF_WIDTH_PX = 3      # on-streak aperture half-width: samples ±N pixels from the centerline
@@ -68,3 +79,17 @@ PEAK_HOUGH_THRESHOLD_SIGMA = 3.0        # binary mask: keep pixels above N·σ_g
 PEAK_HOUGH_GAUSSIAN_KERNEL_SIZE = 51    # high-pass background kernel (must be odd)
 PEAK_HOUGH_ENDPOINT_WALK_SIGMA = 1.5    # walk-out floor = N × σ_local at endpoint
 PEAK_HOUGH_ENDPOINT_GAP_TOLERANCE = 3   # consecutive below-floor steps before stopping
+# --- Peak-Hough Detector (row median-curve peaks + HoughLinesP) ---
+PEAK_HOUGH_MEDIAN_BINS = 80          # median samples used across each row
+PEAK_HOUGH_POLYNOMIAL_DEGREE = 6     # polynomial degree for row baseline fit
+PEAK_HOUGH_SMOOTH_SIGMA = 5.0        # horizontal smoothing before peak detection
+PEAK_HOUGH_THRESHOLD_SIGMA = 2     # peak height threshold = N * row residual std
+PEAK_HOUGH_THRESHOLD = 8            # Hough vote threshold for sparse peak masks
+PEAK_HOUGH_MAX_LINE_GAP = 15          # max pixel gap within one Hough line segment
+PEAK_HOUGH_RHO = 1.0                 # Hough distance resolution (pixels)
+PEAK_HOUGH_THETA_DEG = 1.0           # Hough angle resolution (degrees)
+PEAK_HOUGH_DILATION_KERNEL = 3       # optional peak-mask dilation before Hough
+PEAK_HOUGH_PEAK_MODE = "row_1d"    # "local_2d" or "row_1d"
+PEAK_HOUGH_LOCAL_WINDOW = 31         # 2D local noise window for peak thresholding
+PEAK_HOUGH_LOCAL_MAX_SIZE = 3        # neighbourhood size for 2D local maxima
+PEAK_HOUGH_GLOBAL_FLOOR_SIGMA = 1.0  # global residual std floor mixed into threshold
