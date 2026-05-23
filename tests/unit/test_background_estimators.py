@@ -10,9 +10,16 @@ from streakiller.background.simple_median import SimpleMedianEstimator
 from streakiller.background.gaussian_blur import GaussianBlurEstimator
 from streakiller.background.double_pass import DoublePassEstimator
 from streakiller.background.adaptive_local import AdaptiveLocalEstimator
+from streakiller.background.per_row_median_curve import PerRowMedianCurveEstimator
 from streakiller.config.schema import BackgroundParams
 
-ESTIMATORS = [SimpleMedianEstimator, GaussianBlurEstimator, DoublePassEstimator, AdaptiveLocalEstimator]
+ESTIMATORS = [
+    SimpleMedianEstimator,
+    GaussianBlurEstimator,
+    DoublePassEstimator,
+    AdaptiveLocalEstimator,
+    PerRowMedianCurveEstimator,
+]
 
 
 @pytest.fixture
@@ -90,6 +97,25 @@ class TestSimpleMedianEstimator:
             f"Expected mostly background, got {foreground_fraction:.0%} foreground "
             "(simple_median is a coarse estimator — this is expected to have false positives)"
         )
+
+
+class TestPerRowMedianCurveEstimator:
+    def test_streak_pixels_mostly_foreground(self, streak_image):
+        result = PerRowMedianCurveEstimator().estimate(streak_image, BackgroundParams())
+        streak_row = result[64, 10:118]
+        foreground_fraction = np.mean(streak_row == 255)
+        assert foreground_fraction > 0.3
+
+    def test_isolated_hot_pixels_are_removed(self):
+        rng = np.random.default_rng(3)
+        data = rng.normal(1000.0, 20.0, (128, 128)).astype(np.float32)
+        data[20, 20] += 5000.0
+        data[80, 90] += 5000.0
+
+        result = PerRowMedianCurveEstimator().estimate(data, BackgroundParams())
+
+        assert result[20, 20] == 0
+        assert result[80, 90] == 0
 
 
 class TestGaussianBlurEstimator:

@@ -48,6 +48,7 @@ class StreakPipeline:
             SimpleMedianEstimator,
             DoublePassEstimator,
             AdaptiveLocalEstimator,
+            PerRowMedianCurveEstimator,
         )
         from streakiller.detection.detector import StreakDetector
         from streakiller.detection.fft_detector import FftCorrelationDetector
@@ -67,12 +68,18 @@ class StreakPipeline:
                 self._background = DoublePassEstimator()
             elif method.adaptive_local:
                 self._background = AdaptiveLocalEstimator()
+            elif method.per_row_median_curve:
+                self._background = PerRowMedianCurveEstimator()
             else:
                 self._background = GaussianBlurEstimator()
 
         from streakiller.snr import StreakSNREstimator
 
-        if config.detection_method.fft_correlation:
+        if config.detection_method.peak_hough:
+            from streakiller.detection.peak_hough_detector import PeakHoughDetector
+
+            self._detector = PeakHoughDetector(config.peak_hough_params)
+        elif config.detection_method.fft_correlation:
             self._detector = FftCorrelationDetector(config.fft_detector_params)
         else:
             self._detector = StreakDetector(config.hough_params)
@@ -174,7 +181,11 @@ class StreakPipeline:
             background_method_used=cfg.background_detection_method.active_name(),
             detection_method_used=cfg.detection_method.active_name(),
             min_line_length_used=min_line_length,
-            hough_threshold_used=cfg.hough_params.threshold,
+            hough_threshold_used=(
+                cfg.peak_hough_params.hough_threshold
+                if cfg.detection_method.peak_hough
+                else cfg.hough_params.threshold
+            ),
             stage_line_counts=stage_counts,
         )
 

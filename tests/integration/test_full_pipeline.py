@@ -7,7 +7,7 @@ from pathlib import Path
 import numpy as np
 import pytest
 
-from streakiller.config.schema import PipelineConfig
+from streakiller.config.schema import BackgroundMethod, DetectionMethod, PipelineConfig
 from streakiller.models.fits_image import FitsImage
 from streakiller.pipeline.streak_pipeline import StreakPipeline
 
@@ -64,6 +64,30 @@ class TestFullPipeline:
         assert result.provenance.software_version != ""
         assert "initial_detected" in result.provenance.stage_line_counts
         assert "final" in result.provenance.stage_line_counts
+
+    def test_peak_hough_detector_runs_in_pipeline(self, synthetic_fits_image, tmp_path):
+        cfg = PipelineConfig(
+            images_dir=str(tmp_path / "images"),
+            output_dir=str(tmp_path / "output"),
+            logging_level="WARNING",
+            background_detection_method=BackgroundMethod(
+                gaussian_blur=False,
+                per_row_median_curve=True,
+            ),
+            detection_method=DetectionMethod(
+                hough=False,
+                fft_correlation=False,
+                peak_hough=True,
+            ),
+        )
+        pipeline = StreakPipeline(config=cfg, output_writer=None)
+        result = pipeline.process(synthetic_fits_image)
+
+        assert result.error is None
+        assert result.provenance is not None
+        assert result.provenance.detection_method_used == "peak_hough"
+        assert result.binary_image is not None
+        assert result.binary_image.shape == synthetic_fits_image.data.shape
 
     def test_output_files_written(self, synthetic_fits_image, tmp_path):
         """When a LocalOutputWriter is configured, output files must appear."""

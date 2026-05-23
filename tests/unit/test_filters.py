@@ -177,42 +177,58 @@ class TestColinearMerge:
 # ------------------------------------------------------------------ #
 
 class TestLengthFilter:
-    def test_skips_filter_for_small_inputs(self):
-        lines = _lines((0, 0, 100, 100), (0, 0, 10, 0))
-        result = length_filter(lines, FilterParams(length_fraction=0.8))
-        assert len(result) == 2
-
     def test_keeps_all_equal_length_lines(self):
-        # Fewer than 6 lines → guard returns all unchanged
         lines = _lines((0, 0, 50, 0), (0, 100, 50, 100), (0, 200, 50, 200))
         result = length_filter(lines, FilterParams(length_fraction=0.8))
         assert len(result) == 3
 
-    def test_keeps_only_lines_within_mode_plus_minus_10_percent(self):
+    def test_lower_floor_drops_short_fragments(self):
+        # median = 100; min_allowed = 0.9 * 100 = 90; max_allowed = 3.0 * 100 = 300
+        # 89px line is below the floor and should be dropped
         lines = _lines(
-            (0, 0, 100, 0),   # 100
-            (0, 10, 100, 10), # 100
-            (0, 20, 100, 20), # 100
-            (0, 30, 100, 30), # 100
-            (0, 40, 100, 40), # 100
-            (0, 50, 108, 50), # 108, within +10%
-            (0, 60, 89, 60),  # 89, outside -10%
-            (0, 70, 112, 70), # 112, outside +10%
+            (0, 0, 100, 0),   # 100 — kept
+            (0, 10, 100, 10), # 100 — kept
+            (0, 20, 100, 20), # 100 — kept
+            (0, 30, 100, 30), # 100 — kept
+            (0, 40, 100, 40), # 100 — kept
+            (0, 50, 108, 50), # 108 — kept (above floor, below cap)
+            (0, 60, 89, 60),  # 89  — dropped (below 0.9 * 100)
         )
         result = length_filter(lines, FilterParams(length_fraction=0.9))
         assert len(result) == 6
 
-    def test_custom_fraction_changes_symmetric_band(self):
+    def test_upper_cap_drops_merged_detections(self):
+        # median = 100; max_allowed = 2.0 * 100 = 200
+        # 250px line is above cap and should be dropped
+        lines = _lines(
+            (0, 0, 100, 0),   # 100 — kept
+            (0, 10, 100, 10), # 100 — kept
+            (0, 20, 100, 20), # 100 — kept
+            (0, 30, 100, 30), # 100 — kept
+            (0, 40, 100, 40), # 100 — kept
+            (0, 50, 250, 50), # 250 — dropped (above 2.0 * 100)
+        )
+        result = length_filter(lines, FilterParams(length_fraction=0.9, max_length_factor=2.0))
+        assert len(result) == 5
+
+    def test_lower_fraction_loosens_floor(self):
+        # With fraction=0.7, min_allowed = 0.7 * 100 = 70, so the 75px line is kept
         lines = _lines(
             (0, 0, 100, 0),   # 100
             (0, 10, 100, 10), # 100
             (0, 20, 100, 20), # 100
             (0, 30, 100, 30), # 100
             (0, 40, 100, 40), # 100
-            (0, 50, 75, 50),  # 75
-            (0, 60, 125, 60), # 125
+            (0, 50, 75, 50),  # 75 — dropped at 0.9, kept at 0.7
         )
         result_strict = length_filter(lines, FilterParams(length_fraction=0.9))
         assert len(result_strict) == 5
         result_loose = length_filter(lines, FilterParams(length_fraction=0.7))
-        assert len(result_loose) == 7
+        assert len(result_loose) == 6
+
+    def test_fallback_returns_all_when_nothing_survives(self):
+        # Two lines with wildly different lengths — median lands between them,
+        # both end up outside the band; fallback should return all lines unchanged.
+        lines = _lines((0, 0, 10, 0), (0, 0, 400, 0))
+        result = length_filter(lines, FilterParams(length_fraction=0.99, max_length_factor=1.01))
+        assert len(result) == 2

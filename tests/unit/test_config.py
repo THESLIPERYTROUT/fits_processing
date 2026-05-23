@@ -10,9 +10,11 @@ import pytest
 from streakiller.config.schema import (
     BackgroundMethod,
     ConfigError,
+    DetectionMethod,
     EnabledFilters,
     FilterParams,
     HoughParams,
+    PeakHoughParams,
     PipelineConfig,
 )
 
@@ -65,6 +67,22 @@ class TestValidation:
             hough_params=HoughParams(threshold=0),
         )
         with pytest.raises(ConfigError, match="threshold"):
+            cfg.validate()
+
+    def test_rejects_invalid_peak_hough_threshold(self):
+        cfg = PipelineConfig(
+            images_dir=".", output_dir=".",
+            peak_hough_params=PeakHoughParams(hough_threshold=0),
+        )
+        with pytest.raises(ConfigError, match="peak_hough_params.hough_threshold"):
+            cfg.validate()
+
+    def test_rejects_invalid_peak_hough_mode(self):
+        cfg = PipelineConfig(
+            images_dir=".", output_dir=".",
+            peak_hough_params=PeakHoughParams(peak_mode="nope"),
+        )
+        with pytest.raises(ConfigError, match="peak_hough_params.peak_mode"):
             cfg.validate()
 
     def test_rejects_length_fraction_out_of_range(self):
@@ -197,3 +215,24 @@ class TestBackgroundMethod:
     def test_active_name_double_pass(self):
         bg = BackgroundMethod(simple_median=False, gaussian_blur=False, double_pass=True)
         assert bg.active_name() == "double_pass"
+
+    def test_active_name_per_row_median_curve(self):
+        bg = BackgroundMethod(
+            simple_median=False,
+            gaussian_blur=False,
+            double_pass=False,
+            adaptive_local=False,
+            per_row_median_curve=True,
+        )
+        assert bg.active_name() == "per_row_median_curve"
+
+
+class TestDetectionMethod:
+    def test_active_name_peak_hough(self):
+        dm = DetectionMethod(hough=False, fft_correlation=False, peak_hough=True)
+        assert dm.active_name() == "peak_hough"
+
+    def test_from_dict_peak_hough_disables_default_hough(self):
+        dm = DetectionMethod.from_dict({"peak_hough": True})
+        assert dm.peak_hough is True
+        assert dm.hough is False
