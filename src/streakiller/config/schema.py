@@ -32,6 +32,9 @@ from streakiller.config.defaults import (
     DOUBLE_PASS_SIGMA_MULT,
     DOUBLE_PASS_INPAINT_RADIUS,
     HOTPIXEL_THRESHOLD,
+    HOTPIXEL_SIGMA,
+    HOTPIXEL_MAX_CLUSTER_SIZE,
+    HOTPIXEL_NEIGHBORHOOD,
     ADAPTIVE_LOCAL_TILE_SIZE,
     ADAPTIVE_LOCAL_CLIP_SIGMA,
     ADAPTIVE_LOCAL_N_ITERATIONS,
@@ -286,6 +289,19 @@ class DetectionMethod:
 
 
 @dataclass
+class HotpixelParams:
+    """Parameters for the statistical hot-pixel removal step."""
+    # Statistical threshold: flag pixels more than N·σ_MAD above the image median.
+    # Set to 0 to rely solely on hotpixel_threshold (absolute ADU floor).
+    threshold_sigma: float = HOTPIXEL_SIGMA
+    # Isolated-feature guard: connected regions larger than this many pixels are
+    # preserved unchanged (cosmic-ray tracks, saturated stars, etc.).
+    max_cluster_size: int = HOTPIXEL_MAX_CLUSTER_SIZE
+    # Side length (pixels, must be odd) of the median filter used for replacement.
+    neighborhood_size: int = HOTPIXEL_NEIGHBORHOOD
+
+
+@dataclass
 class OutputOptions:
     save_intermediate_images: bool = False
     save_text_summary: bool = True
@@ -302,6 +318,7 @@ class PipelineConfig:
     norad_id: Optional[int] = None
     default_minlinelength: int = 35
     hotpixel_threshold: int = HOTPIXEL_THRESHOLD
+    hotpixel_params: HotpixelParams = field(default_factory=HotpixelParams)
     enabled_line_filters: EnabledFilters = field(default_factory=EnabledFilters)
     background_detection_method: BackgroundMethod = field(default_factory=BackgroundMethod)
     background_params: BackgroundParams = field(default_factory=BackgroundParams)
@@ -501,6 +518,10 @@ class PipelineConfig:
             norad_id=raw.get("norad_id"),
             default_minlinelength=raw.get("default_minlinelength", 25),
             hotpixel_threshold=raw.get("hotpixel_threshold", HOTPIXEL_THRESHOLD),
+            hotpixel_params=HotpixelParams(
+                **{k: v for k, v in raw.get("hotpixel_params", {}).items()
+                   if k in ("threshold_sigma", "max_cluster_size", "neighborhood_size")}
+            ),
             enabled_line_filters=EnabledFilters.from_dict(
                 raw.get("enabled_line_filters", {})
             ),
