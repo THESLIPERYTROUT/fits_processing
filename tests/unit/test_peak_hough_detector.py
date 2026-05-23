@@ -1,12 +1,8 @@
-"""Unit tests for PeakHoughDetector."""
-from __future__ import annotations
-
-import numpy as np
-import pytest
 """Unit tests for the row-peak Hough detector."""
 from __future__ import annotations
 
 import numpy as np
+import pytest
 
 from streakiller.config.schema import PeakHoughParams
 from streakiller.detection.peak_hough_detector import PeakHoughDetector

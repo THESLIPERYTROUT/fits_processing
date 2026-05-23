@@ -102,18 +102,6 @@ class HoughParams:
 
 
 @dataclass
-class PeakHoughParams:
-    hough_threshold: int      = HOUGH_THRESHOLD
-    max_line_gap: int         = HOUGH_MAX_LINE_GAP
-    rho: float                = HOUGH_RHO
-    theta_deg: float          = HOUGH_THETA_DEG
-    threshold_sigma: float    = PEAK_HOUGH_THRESHOLD_SIGMA
-    gaussian_kernel_size: int = PEAK_HOUGH_GAUSSIAN_KERNEL_SIZE
-    endpoint_walk_sigma: float  = PEAK_HOUGH_ENDPOINT_WALK_SIGMA
-    endpoint_gap_tolerance: int = PEAK_HOUGH_ENDPOINT_GAP_TOLERANCE
-
-
-@dataclass
 class FilterParams:
     midpoint_min_distance: float = MIDPOINT_MIN_DISTANCE
     endpoint_min_distance: float = ENDPOINT_MIN_DISTANCE
@@ -265,6 +253,9 @@ class PeakHoughParams:
     local_window: int = PEAK_HOUGH_LOCAL_WINDOW
     local_max_size: int = PEAK_HOUGH_LOCAL_MAX_SIZE
     global_floor_sigma: float = PEAK_HOUGH_GLOBAL_FLOOR_SIGMA
+    gaussian_kernel_size: int = PEAK_HOUGH_GAUSSIAN_KERNEL_SIZE
+    endpoint_walk_sigma: float = PEAK_HOUGH_ENDPOINT_WALK_SIGMA
+    endpoint_gap_tolerance: int = PEAK_HOUGH_ENDPOINT_GAP_TOLERANCE
 
 
 @dataclass
@@ -291,8 +282,6 @@ class DetectionMethod:
             return "peak_hough"
         if self.fft_correlation:
             return "fft_correlation"
-        if self.peak_hough:
-            return "peak_hough"
         return "hough"
 
 
@@ -411,11 +400,6 @@ class PipelineConfig:
                 f"got {php.global_floor_sigma}"
             )
 
-        php = self.peak_hough_params
-        if php.threshold_sigma <= 0:
-            raise ConfigError(
-                f"peak_hough_params.threshold_sigma must be > 0, got {php.threshold_sigma}"
-            )
         if php.endpoint_walk_sigma < 0:
             raise ConfigError(
                 f"peak_hough_params.endpoint_walk_sigma must be >= 0, got {php.endpoint_walk_sigma}"
