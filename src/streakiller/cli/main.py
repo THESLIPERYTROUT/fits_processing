@@ -189,11 +189,11 @@ def _run_pipeline(
     from streakiller.io.fits_loader import FitsLoader
     from streakiller.pipeline.streak_pipeline import StreakPipeline
 
-    loader = FitsLoader()
-    pipeline = StreakPipeline.from_config(cfg)
     errors: list[tuple[Path, str]] = []
 
     if workers == 1:
+        loader = FitsLoader()
+        pipeline = StreakPipeline.from_config(cfg)
         for path in paths:
             err = _process_one_path(loader, pipeline, path)
             if err:
@@ -201,9 +201,13 @@ def _run_pipeline(
                 if fail_fast:
                     return errors
     else:
-        with ProcessPoolExecutor(max_workers=workers) as pool:
+        with ProcessPoolExecutor(
+            max_workers=workers,
+            initializer=_init_worker,
+            initargs=(cfg,),
+        ) as pool:
             future_to_path = {
-                pool.submit(_process_path_worker, str(path), cfg): path
+                pool.submit(_process_path_worker, str(path)): path
                 for path in paths
             }
             for future in as_completed(future_to_path):
@@ -233,14 +237,24 @@ def _process_one_path(loader, pipeline, path: Path) -> Optional[str]:
         return str(exc)
 
 
-def _process_path_worker(path_str: str, cfg: PipelineConfig) -> Optional[str]:
-    """Top-level function suitable for ProcessPoolExecutor (must be picklable)."""
+# Module-level state populated once per worker process by _init_worker.
+_worker_loader = None
+_worker_pipeline = None
+
+
+def _init_worker(cfg: PipelineConfig) -> None:
+    """Called once per worker process at startup — build the pipeline here, not per-file."""
+    global _worker_loader, _worker_pipeline
     from streakiller.io.fits_loader import FitsLoader
     from streakiller.pipeline.streak_pipeline import StreakPipeline
 
-    loader = FitsLoader()
-    pipeline = StreakPipeline.from_config(cfg)
-    return _process_one_path(loader, pipeline, Path(path_str))
+    _worker_loader = FitsLoader()
+    _worker_pipeline = StreakPipeline.from_config(cfg)
+
+
+def _process_path_worker(path_str: str) -> Optional[str]:
+    """Top-level function suitable for ProcessPoolExecutor (must be picklable)."""
+    return _process_one_path(_worker_loader, _worker_pipeline, Path(path_str))
 
 
 class _JsonFormatter(logging.Formatter):
