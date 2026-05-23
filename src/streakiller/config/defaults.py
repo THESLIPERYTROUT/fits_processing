@@ -26,6 +26,7 @@ DOUBLE_PASS_INPAINT_RADIUS = 3    # Telea inpainting neighbourhood radius (pixel
 MIDPOINT_MIN_DISTANCE = 10.0      # pixels; remove lines whose midpoints are closer than this
 ENDPOINT_MIN_DISTANCE = 10.0      # pixels; remove lines whose endpoints are closer than this
 ANGLE_MIN_DIFF_DEG = 10.0         # degrees; deduplicate lines within this angle of each other
+ANGLE_FILTER_MIN_LINES = 5        # skip angle filter when fewer than this many lines (too little data to cluster)
 LENGTH_FRACTION = 0.90            # lower floor: drop lines shorter than this fraction of the median length
 MAX_LENGTH_FACTOR = 3.0           # upper cap: drop lines longer than this multiple of the median (catches merged overlapping detections)
 COLINEAR_ORIENTATION_TOL = 1.0    # cross-product magnitude below which two segments are collinear

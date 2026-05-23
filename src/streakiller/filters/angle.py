@@ -6,9 +6,6 @@ import numpy as np
 from streakiller.config.schema import FilterParams
 
 
-MIN_LINES_FOR_ANGLE_FILTER = 5
-
-
 def _line_orientation_deg(line: np.ndarray) -> float:
     """Return line orientation in [0, 180), ignoring endpoint order."""
     x1, y1, x2, y2 = line[0]
@@ -42,7 +39,7 @@ def angle_filter(lines: np.ndarray, params: FilterParams) -> np.ndarray:
     if lines is None or len(lines) == 0:
         return np.empty((0, 1, 4), dtype=np.int32)
 
-    if len(lines) < MIN_LINES_FOR_ANGLE_FILTER:
+    if len(lines) < params.angle_filter_min_lines:
         return np.array(lines, dtype=np.int32, copy=True)
 
     orientation_tolerance_deg = params.angle_min_diff_deg

@@ -84,14 +84,26 @@ def colinear_merge(lines: np.ndarray, params: FilterParams) -> np.ndarray:
 
     merged: list[np.ndarray] = []
     for indices in groups.values():
-        xs = []
-        ys = []
+        all_pts: list[tuple[int, int]] = []
         for idx in indices:
             x1, y1, x2, y2 = lines[idx][0]
-            xs.extend([x1, x2])
-            ys.extend([y1, y2])
-        merged.append(
-            np.array([[min(xs), min(ys), max(xs), max(ys)]], dtype=np.int32)
-        )
+            all_pts.append((x1, y1))
+            all_pts.append((x2, y2))
+
+        # Find the two endpoints with the greatest distance between them.
+        # min/max(xs/ys) is wrong for non-monotonic (negative-slope) lines —
+        # it produces bounding-box corners that reverse the streak direction.
+        max_dist = -1.0
+        pa, pb = all_pts[0], all_pts[0]
+        for i in range(len(all_pts)):
+            for j in range(i + 1, len(all_pts)):
+                d = np.hypot(
+                    all_pts[i][0] - all_pts[j][0],
+                    all_pts[i][1] - all_pts[j][1],
+                )
+                if d > max_dist:
+                    max_dist, pa, pb = d, all_pts[i], all_pts[j]
+
+        merged.append(np.array([[pa[0], pa[1], pb[0], pb[1]]], dtype=np.int32))
 
     return np.array(merged, dtype=np.int32)

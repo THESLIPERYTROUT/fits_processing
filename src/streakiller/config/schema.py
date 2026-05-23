@@ -22,6 +22,7 @@ from streakiller.config.defaults import (
     MIDPOINT_MIN_DISTANCE,
     ENDPOINT_MIN_DISTANCE,
     ANGLE_MIN_DIFF_DEG,
+    ANGLE_FILTER_MIN_LINES,
     LENGTH_FRACTION,
     MAX_LENGTH_FACTOR,
     COLINEAR_ORIENTATION_TOL,
@@ -101,6 +102,7 @@ class FilterParams:
     midpoint_min_distance: float = MIDPOINT_MIN_DISTANCE
     endpoint_min_distance: float = ENDPOINT_MIN_DISTANCE
     angle_min_diff_deg: float = ANGLE_MIN_DIFF_DEG
+    angle_filter_min_lines: int = ANGLE_FILTER_MIN_LINES
     length_fraction: float = LENGTH_FRACTION
     max_length_factor: float = MAX_LENGTH_FACTOR
     colinear_orientation_tol: float = COLINEAR_ORIENTATION_TOL

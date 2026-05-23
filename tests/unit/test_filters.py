@@ -131,13 +131,20 @@ class TestAngleFilter:
 
 class TestEndpointFilter:
     def test_removes_close_endpoint(self):
-        # Second line's endpoint overlaps first → removed
-        lines = _lines((0, 0, 100, 100), (2, 2, 200, 200))
+        # Both endpoints of the second line are within threshold of the first → duplicate, removed
+        lines = _lines((0, 0, 100, 100), (2, 2, 102, 102))
         result = endpoint_filter(lines, FilterParams(endpoint_min_distance=10.0))
         assert len(result) == 1
 
     def test_keeps_distant_lines(self):
         lines = _lines((0, 0, 10, 10), (100, 100, 200, 200))
+        result = endpoint_filter(lines, FilterParams(endpoint_min_distance=10.0))
+        assert len(result) == 2
+
+    def test_keeps_line_sharing_only_one_endpoint(self):
+        # Second line starts near the end of the first but diverges completely.
+        # Only one endpoint pair is close → should NOT be treated as a duplicate.
+        lines = _lines((0, 0, 100, 0), (98, 0, 200, 100))
         result = endpoint_filter(lines, FilterParams(endpoint_min_distance=10.0))
         assert len(result) == 2
 
@@ -170,6 +177,19 @@ class TestColinearMerge:
         original_copy = lines.copy()
         colinear_merge(lines, FilterParams())
         np.testing.assert_array_equal(lines, original_copy)
+
+    def test_merges_negative_slope_collinear_segments(self):
+        # Streak going bottom-left → top-right: x increases, y decreases.
+        # min(xs)/min(ys)/max(xs)/max(ys) would produce (10,60,90,200) — wrong slope.
+        # Farthest-pair logic must produce (10,200,90,60) or (90,60,10,200).
+        lines = _lines((10, 200, 50, 130), (50, 130, 90, 60))
+        result = colinear_merge(lines, FilterParams(colinear_orientation_tol=1.0))
+        assert len(result) == 1
+        x1, y1, x2, y2 = result[0][0]
+        # The merged segment should span the true extremes (10,200) and (90,60)
+        # regardless of endpoint ordering
+        pts = {(x1, y1), (x2, y2)}
+        assert pts == {(10, 200), (90, 60)}, f"Got endpoints {pts}"
 
 
 # ------------------------------------------------------------------ #

@@ -39,9 +39,9 @@ class FilterChain:
         """
         Build the chain from the enabled-filters config.
 
-        Order is fixed: midpoint → angle → colinear → endpoint → length.
-        This order matters — colinear merge should run before endpoint/length
-        pruning to avoid prematurely discarding segments that would merge.
+        Order is fixed: midpoint → angle → colinear → length → endpoint.
+        Colinear merge must precede length and endpoint so that short
+        fragments are joined before being judged by size or proximity.
         """
         from streakiller.filters.midpoint import midpoint_filter
         from streakiller.filters.angle import angle_filter
@@ -50,17 +50,16 @@ class FilterChain:
         from streakiller.filters.length import length_filter
 
         steps: list[tuple[str, FilterFn]] = []
-        if enabled.length_filter:
-            steps.append(("length_filter", length_filter))
         if enabled.midpoint_filter:
             steps.append(("midpoint_filter", midpoint_filter))
         if enabled.line_angle:
             steps.append(("angle_filter", angle_filter))
         if enabled.colinear_filter:
             steps.append(("colinear_merge", colinear_merge))
+        if enabled.length_filter:
+            steps.append(("length_filter", length_filter))
         if enabled.endpoint_filter:
             steps.append(("endpoint_filter", endpoint_filter))
-        
 
         return cls(steps)
 

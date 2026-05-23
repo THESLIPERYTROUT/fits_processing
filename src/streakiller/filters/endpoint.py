@@ -34,13 +34,18 @@ def endpoint_filter(lines: np.ndarray, params: FilterParams) -> np.ndarray:
         too_close = False
         for kept in accepted:
             fx1, fy1, fx2, fy2 = kept[0]
-            distances = [
-                np.hypot(x1 - fx1, y1 - fy1),
-                np.hypot(x1 - fx2, y1 - fy2),
-                np.hypot(x2 - fx1, y2 - fy1),
-                np.hypot(x2 - fx2, y2 - fy2),
-            ]
-            if any(d < threshold for d in distances):
+            # Both endpoints of the candidate must each be near some endpoint
+            # of the kept line.  Using `any` would falsely reject a line whose
+            # start happens to graze the tail of an unrelated kept segment.
+            close_to_1 = (
+                min(np.hypot(x1 - fx1, y1 - fy1), np.hypot(x1 - fx2, y1 - fy2))
+                < threshold
+            )
+            close_to_2 = (
+                min(np.hypot(x2 - fx1, y2 - fy1), np.hypot(x2 - fx2, y2 - fy2))
+                < threshold
+            )
+            if close_to_1 and close_to_2:
                 too_close = True
                 break
         if not too_close:
