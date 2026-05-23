@@ -10,7 +10,7 @@
     "enabled_line_filters":
     {
         "midpoint_filter": true,
-        "colinear_filter": true,
+        "colinear_filter": false,
         "line_angle": true,
         "endpoint_filter" : true,
         "length_filter" : true
