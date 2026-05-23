@@ -73,6 +73,7 @@ class StreakPipeline:
             else:
                 self._background = GaussianBlurEstimator()
 
+        from streakiller.detection.peak_hough_detector import PeakHoughDetector
         from streakiller.snr import StreakSNREstimator
 
         if config.detection_method.peak_hough:
@@ -81,6 +82,8 @@ class StreakPipeline:
             self._detector = PeakHoughDetector(config.peak_hough_params)
         elif config.detection_method.fft_correlation:
             self._detector = FftCorrelationDetector(config.fft_detector_params)
+        elif config.detection_method.peak_hough:
+            self._detector = PeakHoughDetector(config.peak_hough_params)
         else:
             self._detector = StreakDetector(config.hough_params)
         self._filter_chain = FilterChain.from_config(config.enabled_line_filters)

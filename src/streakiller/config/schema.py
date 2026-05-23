@@ -61,6 +61,10 @@ from streakiller.config.defaults import (
     FFT_TEMPLATE_EDGE_MARGIN,
     FFT_STREAK_EDGE_MARGIN,
     FFT_PROMINENCE_FRACTION,
+    PEAK_HOUGH_THRESHOLD_SIGMA,
+    PEAK_HOUGH_GAUSSIAN_KERNEL_SIZE,
+    PEAK_HOUGH_ENDPOINT_WALK_SIGMA,
+    PEAK_HOUGH_ENDPOINT_GAP_TOLERANCE,
     PEAK_HOUGH_MEDIAN_BINS,
     PEAK_HOUGH_POLYNOMIAL_DEGREE,
     PEAK_HOUGH_SMOOTH_SIGMA,
@@ -95,6 +99,18 @@ class HoughParams:
     max_line_gap: int = HOUGH_MAX_LINE_GAP
     rho: float = HOUGH_RHO
     theta_deg: float = HOUGH_THETA_DEG
+
+
+@dataclass
+class PeakHoughParams:
+    hough_threshold: int      = HOUGH_THRESHOLD
+    max_line_gap: int         = HOUGH_MAX_LINE_GAP
+    rho: float                = HOUGH_RHO
+    theta_deg: float          = HOUGH_THETA_DEG
+    threshold_sigma: float    = PEAK_HOUGH_THRESHOLD_SIGMA
+    gaussian_kernel_size: int = PEAK_HOUGH_GAUSSIAN_KERNEL_SIZE
+    endpoint_walk_sigma: float  = PEAK_HOUGH_ENDPOINT_WALK_SIGMA
+    endpoint_gap_tolerance: int = PEAK_HOUGH_ENDPOINT_GAP_TOLERANCE
 
 
 @dataclass
@@ -275,6 +291,8 @@ class DetectionMethod:
             return "peak_hough"
         if self.fft_correlation:
             return "fft_correlation"
+        if self.peak_hough:
+            return "peak_hough"
         return "hough"
 
 
@@ -391,6 +409,20 @@ class PipelineConfig:
             raise ConfigError(
                 "peak_hough_params.global_floor_sigma must be >= 0, "
                 f"got {php.global_floor_sigma}"
+            )
+
+        php = self.peak_hough_params
+        if php.threshold_sigma <= 0:
+            raise ConfigError(
+                f"peak_hough_params.threshold_sigma must be > 0, got {php.threshold_sigma}"
+            )
+        if php.endpoint_walk_sigma < 0:
+            raise ConfigError(
+                f"peak_hough_params.endpoint_walk_sigma must be >= 0, got {php.endpoint_walk_sigma}"
+            )
+        if php.endpoint_gap_tolerance < 0:
+            raise ConfigError(
+                f"peak_hough_params.endpoint_gap_tolerance must be >= 0, got {php.endpoint_gap_tolerance}"
             )
 
         fp = self.filter_params
