@@ -178,6 +178,25 @@ class TestColinearMerge:
         colinear_merge(lines, FilterParams())
         np.testing.assert_array_equal(lines, original_copy)
 
+    def test_does_not_merge_distant_collinear_segments(self):
+        # Two collinear horizontal segments 500 px apart; nearest endpoints are 400 px away.
+        # With max_endpoint_distance=100, they should stay separate.
+        lines = _lines((0, 0, 50, 0), (450, 0, 500, 0))
+        result = colinear_merge(
+            lines,
+            FilterParams(colinear_orientation_tol=1.0, colinear_max_endpoint_distance=100.0),
+        )
+        assert len(result) == 2
+
+    def test_merges_nearby_collinear_segments(self):
+        # Same geometry but within the distance threshold → should merge.
+        lines = _lines((0, 0, 50, 0), (80, 0, 130, 0))
+        result = colinear_merge(
+            lines,
+            FilterParams(colinear_orientation_tol=1.0, colinear_max_endpoint_distance=100.0),
+        )
+        assert len(result) == 1
+
     def test_merges_negative_slope_collinear_segments(self):
         # Streak going bottom-left → top-right: x increases, y decreases.
         # min(xs)/min(ys)/max(xs)/max(ys) would produce (10,60,90,200) — wrong slope.

@@ -26,6 +26,7 @@ from streakiller.config.defaults import (
     LENGTH_FRACTION,
     MAX_LENGTH_FACTOR,
     COLINEAR_ORIENTATION_TOL,
+    COLINEAR_MAX_ENDPOINT_DISTANCE,
     GAUSSIAN_KERNEL_SIZE,
     GAUSSIAN_SIGMA_LADDER,
     SIMPLE_MEDIAN_SIGMA_MULT,
@@ -113,6 +114,7 @@ class FilterParams:
     length_fraction: float = LENGTH_FRACTION
     max_length_factor: float = MAX_LENGTH_FACTOR
     colinear_orientation_tol: float = COLINEAR_ORIENTATION_TOL
+    colinear_max_endpoint_distance: float = COLINEAR_MAX_ENDPOINT_DISTANCE
 
 
 @dataclass

@@ -38,6 +38,7 @@ def colinear_merge(lines: np.ndarray, params: FilterParams) -> np.ndarray:
 
     n = len(lines)
     tol = params.colinear_orientation_tol
+    max_ep_dist = params.colinear_max_endpoint_distance
 
     # Union-find -------------------------------------------------------- #
     parent = list(range(n))
@@ -74,7 +75,14 @@ def colinear_merge(lines: np.ndarray, params: FilterParams) -> np.ndarray:
             AC = C - A
             point_cross = abs(float(AB[0] * AC[1] - AB[1] * AC[0])) / ab_len
             if direction_cross < tol and point_cross < tol:
-                union(i, j)
+                min_ep_dist = min(
+                    np.hypot(A[0] - C[0], A[1] - C[1]),
+                    np.hypot(A[0] - D[0], A[1] - D[1]),
+                    np.hypot(B[0] - C[0], B[1] - C[1]),
+                    np.hypot(B[0] - D[0], B[1] - D[1]),
+                )
+                if min_ep_dist <= max_ep_dist:
+                    union(i, j)
 
     # Merge each connected component into a bounding segment ------------ #
     from collections import defaultdict

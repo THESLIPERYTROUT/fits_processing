@@ -10,25 +10,25 @@
     "enabled_line_filters":
     {
         "midpoint_filter": true,
-        "colinear_filter": false,
+        "colinear_filter": true,
         "line_angle": true,
         "endpoint_filter" : true,
         "length_filter" : true
     },
 
     "detection_method": {
-        "hough": false,
+        "hough": true,
         "fft_correlation": false,
-        "peak_hough": true
+        "peak_hough": false
     },
 
     "background_detection_method":
     {
         "simple_median" : false,
-        "Guassian_blur" : false,
+        "Guassian_blur" : true,
         "doublepass_median_to_guassian_blur" : false,
         "adaptive_local": false,
-        "per_row_median_curve": true
+        "per_row_median_curve": false
     }
 
 }

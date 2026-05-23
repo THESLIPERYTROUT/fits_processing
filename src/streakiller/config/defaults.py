@@ -28,8 +28,9 @@ ENDPOINT_MIN_DISTANCE = 10.0      # pixels; remove lines whose endpoints are clo
 ANGLE_MIN_DIFF_DEG = 10.0         # degrees; deduplicate lines within this angle of each other
 ANGLE_FILTER_MIN_LINES = 5        # skip angle filter when fewer than this many lines (too little data to cluster)
 LENGTH_FRACTION = 0.90            # lower floor: drop lines shorter than this fraction of the median length
-MAX_LENGTH_FACTOR = 3.0           # upper cap: drop lines longer than this multiple of the median (catches merged overlapping detections)
+MAX_LENGTH_FACTOR = 1.2           # upper cap: drop lines longer than this multiple of the median (catches merged overlapping detections)
 COLINEAR_ORIENTATION_TOL = 1.0    # cross-product magnitude below which two segments are collinear
+COLINEAR_MAX_ENDPOINT_DISTANCE = 100.0  # pixels; collinear segments farther apart than this are not merged
 
 # --- Hot pixel removal (streakprocessing.py:685) ---
 HOTPIXEL_THRESHOLD = 5000         # ADU; absolute floor — pixels above this are always candidates
@@ -55,7 +56,7 @@ PER_ROW_MEDIAN_BINS = 80             # median samples used across each row
 PER_ROW_MEDIAN_DEGREE = 6             # polynomial degree for the row background fit
 PER_ROW_MEDIAN_SMOOTH_SIGMA = 5.0     # horizontal smoothing before sampling medians
 PER_ROW_MEDIAN_ROW_WINDOW = 9         # vertical pixels included in each median sample
-PER_ROW_MEDIAN_SIGMA_MULT = 2     # threshold = residual median + mult * MAD sigma
+PER_ROW_MEDIAN_SIGMA_MULT = 1.5     # threshold = residual median + mult * MAD sigma
 PER_ROW_MEDIAN_FILTER_SIZE = 1        # optional horizontal residual median filter size
 PER_ROW_MEDIAN_MIN_COMPONENT_PIXELS = 20  # remove foreground components smaller than this
 PER_ROW_MEDIAN_MORPH_KERNEL = 3      # morphological close kernel size (pixels)
@@ -92,8 +93,8 @@ PEAK_HOUGH_THRESHOLD = 8            # Hough vote threshold for sparse peak masks
 PEAK_HOUGH_MAX_LINE_GAP = 15          # max pixel gap within one Hough line segment
 PEAK_HOUGH_RHO = 1.0                 # Hough distance resolution (pixels)
 PEAK_HOUGH_THETA_DEG = 1.0           # Hough angle resolution (degrees)
-PEAK_HOUGH_DILATION_KERNEL = 3       # optional peak-mask dilation before Hough
-PEAK_HOUGH_PEAK_MODE = "row_1d"    # "local_2d" or "row_1d"
+PEAK_HOUGH_DILATION_KERNEL = 5       # optional peak-mask dilation before Hough
+PEAK_HOUGH_PEAK_MODE = "local_2d"    # "local_2d" or "row_1d"
 PEAK_HOUGH_LOCAL_WINDOW = 31         # 2D local noise window for peak thresholding
 PEAK_HOUGH_LOCAL_MAX_SIZE = 3        # neighbourhood size for 2D local maxima
 PEAK_HOUGH_GLOBAL_FLOOR_SIGMA = 1.0  # global residual std floor mixed into threshold
