@@ -2,10 +2,10 @@
 # These are the default values; all are overridable via PipelineConfig.
 
 # --- Hough Line Transform (streakprocessing.py:112) ---
-HOUGH_THRESHOLD = 60          # minimum vote count for a line to be accepted
+HOUGH_THRESHOLD = 40          # minimum vote count for a line to be accepted
 HOUGH_MAX_LINE_GAP = 5        # max pixel gap allowed within a single line
 HOUGH_RHO = 1.0               # distance resolution (pixels)
-HOUGH_THETA_DEG = 1.0         # angle resolution (degrees)
+HOUGH_THETA_DEG = 0.5         # angle resolution (degrees)
 
 # --- Background: Gaussian blur (streakprocessing.py:315, 330, 347-358) ---
 GAUSSIAN_KERNEL_SIZE = 51     # blur kernel size for background estimation
@@ -29,6 +29,7 @@ LENGTH_FRACTION = 0.90          # lower floor: drop lines shorter than this frac
 MAX_LENGTH_FACTOR = 1.4           # upper cap: drop lines longer than this multiple of the median (catches merged overlapping detections)
 COLINEAR_ORIENTATION_TOL = 1.0    # cross-product magnitude below which two segments are collinear
 COLINEAR_MAX_ENDPOINT_DISTANCE = 100.0  # pixels; collinear segments farther apart than this are not merged
+MAX_RAW_LINES = 2000              # hard cap on raw detections before the filter chain; prevents O(n²) blowup on very busy images (longest lines kept)
 
 # --- Hot pixel removal (streakprocessing.py:685) ---
 HOTPIXEL_THRESHOLD = 5000         # ADU; absolute floor — pixels above this are always candidates
@@ -54,7 +55,7 @@ PER_ROW_MEDIAN_BINS = 80             # median samples used across each row
 PER_ROW_MEDIAN_DEGREE = 6             # polynomial degree for the row background fit
 PER_ROW_MEDIAN_SMOOTH_SIGMA = 5.0     # horizontal smoothing before sampling medians
 PER_ROW_MEDIAN_ROW_WINDOW = 9         # vertical pixels included in each median sample
-PER_ROW_MEDIAN_SIGMA_MULT = 1.5    # threshold = per-row residual median + mult * MAD sigma
+PER_ROW_MEDIAN_SIGMA_MULT = 1.40    # threshold = per-row residual median + mult * MAD sigma
 PER_ROW_MEDIAN_FILTER_SIZE = 1        # optional horizontal residual median filter size
 PER_ROW_MEDIAN_MIN_COMPONENT_PIXELS = 5  # remove foreground components smaller than this
 PER_ROW_MEDIAN_MORPH_KERNEL = 10      # optional morphological close kernel size (pixels)

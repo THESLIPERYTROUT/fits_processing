@@ -27,6 +27,7 @@ from streakiller.config.defaults import (
     MAX_LENGTH_FACTOR,
     COLINEAR_ORIENTATION_TOL,
     COLINEAR_MAX_ENDPOINT_DISTANCE,
+    MAX_RAW_LINES,
     GAUSSIAN_KERNEL_SIZE,
     GAUSSIAN_SIGMA_LADDER,
     SIMPLE_MEDIAN_SIGMA_MULT,
@@ -134,6 +135,7 @@ class FilterParams:
     max_length_factor: float = MAX_LENGTH_FACTOR
     colinear_orientation_tol: float = COLINEAR_ORIENTATION_TOL
     colinear_max_endpoint_distance: float = COLINEAR_MAX_ENDPOINT_DISTANCE
+    max_raw_lines: int = MAX_RAW_LINES
 
 
 @dataclass
@@ -517,7 +519,10 @@ class PipelineConfig:
             background_params=BackgroundParams.from_dict(
                 raw.get("background_params", {})
             ),
-            filter_params=FilterParams(),
+            filter_params=FilterParams(
+                **{k: v for k, v in raw.get("filter_params", {}).items()
+                   if k in FilterParams.__dataclass_fields__}
+            ),
             hough_params=HoughParams(),
             detection_method=DetectionMethod.from_dict(
                 raw.get("detection_method", {})

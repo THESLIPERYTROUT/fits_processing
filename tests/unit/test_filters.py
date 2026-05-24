@@ -285,3 +285,24 @@ class TestLengthFilter:
         )
         result = length_filter(lines, FilterParams(length_fraction=0.9))
         assert len(result) == 5
+
+    def test_multimodal_picks_longest_mode(self):
+        # Bimodal: 4 short fragments (~43 px, including axis-aligned exact ties)
+        # and 6 long streaks (~103-107 px).  The filter must anchor to the long
+        # cluster even though the short cluster contains exact-pixel-length ties
+        # that the old exact-mode path would have incorrectly selected.
+        lines = _lines(
+            (0, 0, 0, 43),       # 43 — vertical exact tie
+            (10, 0, 10, 43),     # 43 — vertical exact tie
+            (20, 0, 20, 43),     # 43 — vertical exact tie
+            (30, 5, 30, 50),     # 45
+            (0, 100, 105, 100),  # 105
+            (0, 110, 105, 110),  # 105
+            (0, 120, 104, 120),  # 104
+            (0, 130, 106, 130),  # 106
+            (0, 140, 103, 140),  # 103
+            (0, 150, 107, 150),  # 107
+        )
+        result = length_filter(lines, FilterParams(length_fraction=0.9))
+        # modal ~105, min_allowed ~94.5 — only the 6 long streaks survive
+        assert len(result) == 6

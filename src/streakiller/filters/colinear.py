@@ -7,8 +7,13 @@ BUG FIX vs original (streakprocessing.py:244-246):
 
   Fixed: uses a union-find approach — build a graph of which segments are
   collinear, then merge each connected component into one segment.
+
+PERFORMANCE: the collinearity test is fully vectorised with NumPy broadcasting
+so the O(n²) work runs in C rather than a Python double-loop.
 """
 from __future__ import annotations
+
+from collections import defaultdict
 
 import numpy as np
 
@@ -19,8 +24,11 @@ def colinear_merge(lines: np.ndarray, params: FilterParams) -> np.ndarray:
     """
     Merge collinear line segments into single longer segments.
 
-    Two segments are considered collinear when the cross-product magnitude of
-    their direction vectors is below *params.colinear_orientation_tol*.
+    Two segments are considered collinear when:
+      1. Their direction vectors are parallel (cross-product / lengths < tol)
+      2. A start-point of one lies on the infinite line through the other
+         (cross-product / length < tol)
+      3. Their nearest endpoints are within *colinear_max_endpoint_distance* px
 
     Parameters
     ----------
@@ -31,16 +39,60 @@ def colinear_merge(lines: np.ndarray, params: FilterParams) -> np.ndarray:
     -------
     merged : ndarray, shape (M, 1, 4)  where M <= N
     """
-    if lines is None or len(lines) <= 1:
-        if lines is None or len(lines) == 0:
-            return np.empty((0, 1, 4), dtype=np.int32)
+    if lines is None or len(lines) == 0:
+        return np.empty((0, 1, 4), dtype=np.int32)
+    if len(lines) == 1:
         return np.array(lines, dtype=np.int32)
 
     n = len(lines)
     tol = params.colinear_orientation_tol
     max_ep_dist = params.colinear_max_endpoint_distance
 
-    # Union-find -------------------------------------------------------- #
+    pts = lines[:, 0, :].astype(float)   # (n, 4)
+    starts = pts[:, :2]                   # (n, 2) — A endpoints
+    ends   = pts[:, 2:]                   # (n, 2) — B endpoints
+    AB     = ends - starts                # (n, 2) — direction vectors
+    ab_len = np.hypot(AB[:, 0], AB[:, 1]) # (n,)
+    valid  = ab_len > 1e-9                # non-degenerate segments
+
+    AB_x = AB[:, 0]
+    AB_y = AB[:, 1]
+
+    # ---- direction cross products ----------------------------------------
+    # |AB[i] × AB[j]| / (ab_len[i] * ab_len[j])  — shape (n, n)
+    cross_dir = np.abs(
+        AB_x[:, None] * AB_y[None, :] - AB_y[:, None] * AB_x[None, :]
+    )
+    denom = ab_len[:, None] * ab_len[None, :]
+    direction_crosses = np.where(denom > 0, cross_dir / denom, np.inf)
+
+    # ---- point cross products -------------------------------------------
+    # |AB[i] × AC[i,j]| / ab_len[i],  AC[i,j] = starts[j] - starts[i]
+    AC_x = starts[None, :, 0] - starts[:, None, 0]  # (n, n)
+    AC_y = starts[None, :, 1] - starts[:, None, 1]  # (n, n)
+    point_cross = np.abs(AB_x[:, None] * AC_y - AB_y[:, None] * AC_x)
+    safe_len = np.where(ab_len > 0, ab_len, 1.0)
+    point_crosses = point_cross / safe_len[:, None]
+
+    # ---- minimum endpoint-to-endpoint distances -------------------------
+    def _ep_dist(p: np.ndarray, q: np.ndarray) -> np.ndarray:
+        return np.hypot(p[:, None, 0] - q[None, :, 0], p[:, None, 1] - q[None, :, 1])
+
+    min_ep = np.minimum(
+        np.minimum(_ep_dist(starts, starts), _ep_dist(starts, ends)),
+        np.minimum(_ep_dist(ends,   starts), _ep_dist(ends,   ends)),
+    )  # (n, n)
+
+    # ---- adjacency: upper triangle only ---------------------------------
+    should_merge = (
+        (direction_crosses < tol) &
+        (point_crosses     < tol) &
+        (min_ep           <= max_ep_dist) &
+        valid[:, None] & valid[None, :]
+    )
+    i_idx, j_idx = np.where(np.triu(should_merge, k=1))
+
+    # ---- union-find -----------------------------------------------------
     parent = list(range(n))
 
     def find(x: int) -> int:
@@ -49,57 +101,22 @@ def colinear_merge(lines: np.ndarray, params: FilterParams) -> np.ndarray:
             x = parent[x]
         return x
 
-    def union(a: int, b: int) -> None:
-        parent[find(a)] = find(b)
+    for i, j in zip(i_idx.tolist(), j_idx.tolist()):
+        parent[find(i)] = find(j)
 
-    for i in range(n):
-        x1, y1, x2, y2 = lines[i][0]
-        A = np.array([x1, y1], dtype=float)
-        B = np.array([x2, y2], dtype=float)
-        AB = B - A
-        ab_len = np.linalg.norm(AB)
-        if ab_len < 1e-9:
-            continue
-        for j in range(i + 1, n):
-            x3, y3, x4, y4 = lines[j][0]
-            C = np.array([x3, y3], dtype=float)
-            D = np.array([x4, y4], dtype=float)
-            CD = D - C
-            cd_len = np.linalg.norm(CD)
-            if cd_len < 1e-9:
-                continue
-            # Two segments are collinear iff:
-            # 1. Their directions are parallel (cross product of unit vectors ≈ 0)
-            # 2. A point on line j lies on the line through line i
-            direction_cross = abs(float(AB[0] * CD[1] - AB[1] * CD[0]) / (ab_len * cd_len))
-            AC = C - A
-            point_cross = abs(float(AB[0] * AC[1] - AB[1] * AC[0])) / ab_len
-            if direction_cross < tol and point_cross < tol:
-                min_ep_dist = min(
-                    np.hypot(A[0] - C[0], A[1] - C[1]),
-                    np.hypot(A[0] - D[0], A[1] - D[1]),
-                    np.hypot(B[0] - C[0], B[1] - C[1]),
-                    np.hypot(B[0] - D[0], B[1] - D[1]),
-                )
-                if min_ep_dist <= max_ep_dist:
-                    union(i, j)
-
-    # Merge each connected component into a bounding segment ------------ #
-    from collections import defaultdict
+    # ---- merge each connected component into a bounding segment ---------
     groups: dict[int, list[int]] = defaultdict(list)
     for i in range(n):
         groups[find(i)].append(i)
 
     merged: list[np.ndarray] = []
     for indices in groups.values():
-        all_pts: list[tuple[int, int]] = []
-        for idx in indices:
-            x1, y1, x2, y2 = lines[idx][0]
-            all_pts.append((x1, y1))
-            all_pts.append((x2, y2))
-
-        xs = [pt[0] for pt in all_pts]
-        ys = [pt[1] for pt in all_pts]
-        merged.append(np.array([[min(xs), min(ys), max(xs), max(ys)]], dtype=np.int32))
+        all_pts = pts[indices]  # (k, 4)
+        xs = np.concatenate([all_pts[:, 0], all_pts[:, 2]])
+        ys = np.concatenate([all_pts[:, 1], all_pts[:, 3]])
+        merged.append(
+            np.array([[int(xs.min()), int(ys.min()), int(xs.max()), int(ys.max())]],
+                     dtype=np.int32)
+        )
 
     return np.array(merged, dtype=np.int32)

@@ -22,6 +22,22 @@ from streakiller.models.result import PipelineResult, Provenance
 logger = logging.getLogger(__name__)
 
 
+def _cap_raw_lines(lines: np.ndarray, max_raw: int, log) -> np.ndarray:
+    """Keep the longest *max_raw* lines; log a warning if the cap fires."""
+    if max_raw <= 0 or len(lines) <= max_raw:
+        return lines
+    lengths = np.hypot(
+        lines[:, 0, 2].astype(float) - lines[:, 0, 0],
+        lines[:, 0, 3].astype(float) - lines[:, 0, 1],
+    )
+    top_idx = np.argpartition(lengths, -max_raw)[-max_raw:]
+    log.warning(
+        "max_raw_lines cap fired: keeping %d longest of %d raw detections",
+        max_raw, len(lines),
+    )
+    return lines[top_idx]
+
+
 class StreakPipeline:
     """
     Full streak-detection pipeline for one FITS image.
@@ -151,8 +167,11 @@ class StreakPipeline:
         detection = self._detector.detect(binary, image.data, min_line_length)
         img_log.info("Detected %d raw lines", len(detection.lines))
 
+        # 5b: Cap raw detections before the O(n²) filter chain
+        raw_lines = _cap_raw_lines(detection.lines, cfg.filter_params.max_raw_lines, img_log)
+
         # 6: Filter chain
-        final_lines, snapshots = self._filter_chain.run(detection.lines, cfg.filter_params)
+        final_lines, snapshots = self._filter_chain.run(raw_lines, cfg.filter_params)
         img_log.info("Final streak count: %d", len(final_lines))
 
         # 6b: Per-streak SNR estimation on the raw image

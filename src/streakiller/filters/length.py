@@ -1,16 +1,25 @@
 """
 Length filter - removes segments that are clearly too short or suspiciously long.
 
-The reference length is the binned mode of detected segment lengths: the center
-of the densest length cluster. Using a binned mode is more useful than an exact
-mode because Hough lengths are continuous enough that exact duplicates are not
-guaranteed.
+The reference length is the dominant peak of the length histogram. In a
+multimodal distribution (e.g. noise fragments at one scale and real streaks at
+another), the longest significant peak is chosen so the filter anchors to the
+actual streak population rather than the noise cluster.
+
+Using a binned histogram rather than exact mode avoids an artifact where
+axis-aligned streaks that share the same integer pixel span create a false
+exact-tie "mode" that does not correspond to the densest cluster.
 """
 from __future__ import annotations
 
 import numpy as np
 
 from streakiller.config.schema import FilterParams
+
+# A peak must reach at least this fraction of the tallest peak's count to be
+# treated as a significant mode.  Prevents isolated far-tail detections from
+# being selected as the "longest mode".
+_PEAK_SIGNIFICANCE = 0.30
 
 
 def length_filter(lines: np.ndarray, params: FilterParams) -> np.ndarray:
@@ -50,19 +59,15 @@ def length_filter(lines: np.ndarray, params: FilterParams) -> np.ndarray:
 
 def _modal_length(lengths: np.ndarray) -> float:
     """
-    Estimate the dominant line length.
+    Return the length at the dominant streak cluster.
 
-    Exact mode is only useful when lengths repeat after pixel rounding. When
-    they do not, use a Freedman-Diaconis histogram and return the median length
-    inside the densest bin.
+    Builds a Freedman-Diaconis histogram, finds all local peaks, and returns
+    the median length inside the longest *significant* peak bin.  In a
+    multimodal distribution (e.g. short noise fragments mixed with real
+    streaks) this selects the streak population rather than the noise.
     """
     if len(lengths) == 1:
         return float(lengths[0])
-
-    rounded = np.rint(lengths).astype(int)
-    unique_lengths, counts = np.unique(rounded, return_counts=True)
-    if counts.max() > 1:
-        return float(unique_lengths[np.argmax(counts)])
 
     q25, q75 = np.percentile(lengths, [25, 75])
     iqr = float(q75 - q25)
@@ -74,12 +79,31 @@ def _modal_length(lengths: np.ndarray) -> float:
     length_max = float(lengths.max())
     bins = max(1, int(np.ceil((length_max - length_min) / bin_width)))
     counts, edges = np.histogram(lengths, bins=bins)
+
     if counts.max() <= 1:
         return float(np.median(lengths))
 
-    best_bin = int(np.argmax(counts))
+    peaks = _histogram_peaks(counts)
+    if not peaks:
+        peaks = [int(np.argmax(counts))]
+
+    tallest = max(counts[i] for i in peaks)
+    significant = [i for i in peaks if counts[i] >= tallest * _PEAK_SIGNIFICANCE]
+    best_bin = significant[-1]  # rightmost = longest significant peak
 
     in_bin = (lengths >= edges[best_bin]) & (lengths <= edges[best_bin + 1])
     if np.any(in_bin):
         return float(np.median(lengths[in_bin]))
     return float((edges[best_bin] + edges[best_bin + 1]) / 2)
+
+
+def _histogram_peaks(counts: np.ndarray) -> list[int]:
+    """Return indices of local maxima in a histogram count array."""
+    n = len(counts)
+    peaks = []
+    for i in range(n):
+        left = int(counts[i - 1]) if i > 0 else -1
+        right = int(counts[i + 1]) if i < n - 1 else -1
+        if counts[i] > left and counts[i] > right:
+            peaks.append(i)
+    return peaks

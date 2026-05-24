@@ -8,6 +8,7 @@ filters are enabled in the config.
 from __future__ import annotations
 
 import logging
+import time
 from typing import Callable
 
 import numpy as np
@@ -89,7 +90,9 @@ class FilterChain:
 
         for name, fn in self._steps:
             before = len(current)
+            t0 = time.perf_counter()
             current = fn(current, params)
+            elapsed = time.perf_counter() - t0
             after = len(current)
             snapshots.append(
                 FilterStageSnapshot(
@@ -99,7 +102,7 @@ class FilterChain:
                     lines=current.copy(),
                 )
             )
-            logger.info("Filter %-20s  %d -> %d lines", name, before, after)
+            logger.info("Filter %-20s  %d -> %d lines  (%.3fs)", name, before, after, elapsed)
 
         return current, snapshots
 
