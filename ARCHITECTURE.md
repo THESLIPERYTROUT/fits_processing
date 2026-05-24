@@ -301,7 +301,7 @@ final_lines, snapshots = chain.run(raw_lines, config.filter_params)
 
 `FilterChain.from_config()` wires them in fixed order:
 ```
-midpoint → angle → colinear → endpoint → length
+angle → colinear → length → midpoint → endpoint
 ```
 
 A filter receives all lines seen so far and returns a subset (or

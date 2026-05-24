@@ -4,7 +4,8 @@ from __future__ import annotations
 import numpy as np
 import pytest
 
-from streakiller.config.schema import FilterParams
+from streakiller.config.schema import EnabledFilters, FilterParams
+from streakiller.filters.chain import FilterChain
 from streakiller.filters.midpoint import midpoint_filter
 from streakiller.filters.angle import angle_filter
 from streakiller.filters.endpoint import endpoint_filter
@@ -27,6 +28,25 @@ def _lines(*coords) -> np.ndarray:
 # ------------------------------------------------------------------ #
 
 FILTER_FNS = [midpoint_filter, angle_filter, endpoint_filter, colinear_merge, length_filter]
+
+
+def test_filter_chain_order_places_midpoint_after_length():
+    chain = FilterChain.from_config(
+        EnabledFilters(
+            midpoint_filter=True,
+            line_angle=True,
+            colinear_filter=True,
+            endpoint_filter=True,
+            length_filter=True,
+        )
+    )
+    assert chain.step_names == [
+        "angle_filter",
+        "colinear_merge",
+        "length_filter",
+        "midpoint_filter",
+        "endpoint_filter",
+    ]
 
 
 @pytest.mark.parametrize("fn", FILTER_FNS)
@@ -202,7 +222,7 @@ class TestLengthFilter:
         assert len(result) == 3
 
     def test_lower_floor_drops_short_fragments(self):
-        # median = 100; min_allowed = 0.9 * 100 = 90; max_allowed = 3.0 * 100 = 300
+        # modal length = 100; min_allowed = 0.9 * 100 = 90
         # 89px line is below the floor and should be dropped
         lines = _lines(
             (0, 0, 100, 0),   # 100 — kept
@@ -217,7 +237,7 @@ class TestLengthFilter:
         assert len(result) == 6
 
     def test_upper_cap_drops_merged_detections(self):
-        # median = 100; max_allowed = 2.0 * 100 = 200
+        # modal length = 100; max_allowed = 2.0 * 100 = 200
         # 250px line is above cap and should be dropped
         lines = _lines(
             (0, 0, 100, 0),   # 100 — kept
@@ -251,3 +271,17 @@ class TestLengthFilter:
         lines = _lines((0, 0, 10, 0), (0, 0, 400, 0))
         result = length_filter(lines, FilterParams(length_fraction=0.99, max_length_factor=1.01))
         assert len(result) == 2
+
+    def test_uses_modal_cluster_instead_of_median(self):
+        lines = _lines(
+            (0, 0, 40, 0),    # 40
+            (0, 10, 41, 10),  # 41
+            (0, 20, 42, 20),  # 42
+            (0, 30, 100, 30), # 100
+            (0, 40, 100, 40), # 100
+            (0, 50, 100, 50), # 100
+            (0, 60, 100, 60), # 100
+            (0, 70, 100, 70), # 100
+        )
+        result = length_filter(lines, FilterParams(length_fraction=0.9))
+        assert len(result) == 5

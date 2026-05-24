@@ -35,6 +35,10 @@ STAGE_OVERLAY_COLORS: list[tuple[int, int, int]] = [
     (167, 121, 204),  # reddish purple
 ]
 
+ANNOTATION_THICKNESS = 1
+LEGEND_FONT_SCALE = 0.6
+LEGEND_TEXT_THICKNESS = 1
+
 
 @runtime_checkable
 class OutputWriter(Protocol):
@@ -119,10 +123,20 @@ class LocalOutputWriter:
             x1, y1, x2, y2 = line[0]
             xmin, xmax = min(x1, x2), max(x1, x2)
             ymin, ymax = min(y1, y2), max(y1, y2)
-            cv2.rectangle(display, (xmin, ymin), (xmax, ymax), (0, 255, 0), 2)
+            cv2.rectangle(
+                display,
+                (xmin, ymin),
+                (xmax, ymax),
+                (0, 255, 0),
+                ANNOTATION_THICKNESS,
+            )
             cv2.putText(
                 display, str(i + 1), (xmin, ymin - 10),
-                cv2.FONT_HERSHEY_SIMPLEX, 0.5, (0, 255, 255), 1, cv2.LINE_AA,
+                cv2.FONT_HERSHEY_SIMPLEX,
+                0.45,
+                (0, 255, 255),
+                ANNOTATION_THICKNESS,
+                cv2.LINE_AA,
             )
 
         path = run_dir / "detected_streaks.png"
@@ -294,7 +308,7 @@ def _format_duration(provenance) -> str:
 def _draw_filter_stage_overlays(
     base_image: np.ndarray,
     stages: list[tuple[str, np.ndarray]],
-    thickness: int = 3,
+    thickness: int = ANNOTATION_THICKNESS,
 ) -> np.ndarray:
     out = base_image.copy()
     if out.ndim == 2:
@@ -311,7 +325,14 @@ def _draw_filter_stage_overlays(
             l = np.asarray(line).reshape(-1)
             if l.size < 4:
                 continue
-            cv2.line(overlay, (int(l[0]), int(l[1])), (int(l[2]), int(l[3])), color, thickness, cv2.LINE_AA)
+            cv2.line(
+                overlay,
+                (int(l[0]), int(l[1])),
+                (int(l[2]), int(l[3])),
+                color,
+                thickness,
+                cv2.LINE_AA,
+            )
         alpha = 0.35 + 0.55 * (idx / max(1, n - 1))
         cv2.addWeighted(overlay, alpha, out, 1 - alpha, 0, out)
 
@@ -328,6 +349,15 @@ def _draw_filter_stage_overlays(
         ty = ly + 6 + idx * 35
         cv2.rectangle(out, (lx, ty), (lx + 20, ty + 20), color, -1)
         count = len(lines) if lines is not None and hasattr(lines, "__len__") else 0
-        cv2.putText(out, f"{name}: {count}", (lx + 30, ty + 15), cv2.FONT_HERSHEY_SIMPLEX, 1.0, (255, 255, 255), 2, cv2.LINE_AA)
+        cv2.putText(
+            out,
+            f"{name}: {count}",
+            (lx + 30, ty + 15),
+            cv2.FONT_HERSHEY_SIMPLEX,
+            LEGEND_FONT_SCALE,
+            (255, 255, 255),
+            LEGEND_TEXT_THICKNESS,
+            cv2.LINE_AA,
+        )
 
     return out

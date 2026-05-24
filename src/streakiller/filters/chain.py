@@ -1,5 +1,5 @@
 """
-FilterChain — assembles and runs the ordered filter pipeline.
+FilterChain - assembles and runs the ordered filter pipeline.
 
 Each filter is a pure function with signature (np.ndarray, FilterParams) -> np.ndarray.
 FilterChain.from_config() wires them in the correct fixed order based on which
@@ -17,13 +17,12 @@ from streakiller.models.streak import FilterStageSnapshot
 
 logger = logging.getLogger(__name__)
 
-# Type alias for filter functions
 FilterFn = Callable[[np.ndarray, FilterParams], np.ndarray]
 
 
 class FilterChain:
     """
-    Ordered list of filter steps.  Each step has a name and a pure function.
+    Ordered list of filter steps. Each step has a name and a pure function.
 
     Usage::
 
@@ -39,9 +38,11 @@ class FilterChain:
         """
         Build the chain from the enabled-filters config.
 
-        Order is fixed: midpoint → angle → colinear → length → endpoint.
-        Colinear merge must precede length and endpoint so that short
-        fragments are joined before being judged by size or proximity.
+        Order is fixed: angle -> colinear -> length -> midpoint -> endpoint.
+        Colinear merge must precede length and endpoint so short fragments are
+        joined before being judged by size or proximity. Midpoint deduplication
+        runs after length so short fragments cannot suppress a better
+        same-midpoint candidate.
         """
         from streakiller.filters.midpoint import midpoint_filter
         from streakiller.filters.angle import angle_filter
@@ -50,14 +51,14 @@ class FilterChain:
         from streakiller.filters.length import length_filter
 
         steps: list[tuple[str, FilterFn]] = []
-        if enabled.midpoint_filter:
-            steps.append(("midpoint_filter", midpoint_filter))
         if enabled.line_angle:
             steps.append(("angle_filter", angle_filter))
         if enabled.colinear_filter:
             steps.append(("colinear_merge", colinear_merge))
         if enabled.length_filter:
             steps.append(("length_filter", length_filter))
+        if enabled.midpoint_filter:
+            steps.append(("midpoint_filter", midpoint_filter))
         if enabled.endpoint_filter:
             steps.append(("endpoint_filter", endpoint_filter))
 
@@ -97,7 +98,7 @@ class FilterChain:
                     lines=current.copy(),
                 )
             )
-            logger.info("Filter %-20s  %d → %d lines", name, before, after)
+            logger.info("Filter %-20s  %d -> %d lines", name, before, after)
 
         return current, snapshots
 

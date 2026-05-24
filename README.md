@@ -227,7 +227,7 @@ Exactly one method must be set to `true`.
 | `double_pass` | Complex scenes: variable backgrounds, crowded star fields, cosmic rays. Slowest. |
 
 #### Line filters
-Filters run in a fixed order: midpoint → angle → colinear → endpoint → length.
+Filters run in a fixed order: angle → colinear → length → midpoint → endpoint.
 
 | Filter | What it removes |
 |--------|----------------|
