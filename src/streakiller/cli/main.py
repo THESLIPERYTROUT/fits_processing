@@ -11,19 +11,28 @@ Usage
 """
 from __future__ import annotations
 
+import csv
 import glob as _glob
 import json
 import logging
+import os
 import sys
+import time
 from concurrent.futures import ProcessPoolExecutor, as_completed
 from pathlib import Path
-from typing import Optional
+from typing import NamedTuple, Optional
 
 import click
 
 from streakiller.config.schema import ConfigError, PipelineConfig
 
 logger = logging.getLogger(__name__)
+
+
+class _WorkerResult(NamedTuple):
+    error: Optional[str]
+    elapsed_s: float
+    pid: int
 
 
 @click.group()
@@ -51,6 +60,9 @@ def cli() -> None:
 @click.option("--dry-run", is_flag=True, help="Print matched files and exit")
 @click.option("--fail-fast", is_flag=True,
               help="Exit immediately on first error (default: collect errors)")
+@click.option("--timing-log", "timing_log_path", default=None,
+              type=click.Path(dir_okay=False, writable=True),
+              help="Write per-file timing data to this CSV file")
 def process(
     files: tuple,
     config_path: str,
@@ -61,6 +73,7 @@ def process(
     log_format: str,
     dry_run: bool,
     fail_fast: bool,
+    timing_log_path: Optional[str],
 ) -> None:
     """Process one or more FITS files for satellite streaks."""
     _setup_logging(log_format)
@@ -111,7 +124,10 @@ def process(
 
     # Process ----------------------------------------------------------- #
     click.echo(f"Processing {len(paths)} file(s) with {workers} worker(s)...")
-    errors = _run_pipeline(paths, cfg, workers, fail_fast)
+    errors = _run_pipeline(
+        paths, cfg, workers, fail_fast,
+        timing_log_path=Path(timing_log_path) if timing_log_path else None,
+    )
 
     if errors:
         click.echo(f"\n{len(errors)} file(s) failed:", err=True)
@@ -185,20 +201,25 @@ def _run_pipeline(
     cfg: PipelineConfig,
     workers: int,
     fail_fast: bool,
+    timing_log_path: Optional[Path] = None,
 ) -> list[tuple[Path, str]]:
     from streakiller.io.fits_loader import FitsLoader
     from streakiller.pipeline.streak_pipeline import StreakPipeline
 
     errors: list[tuple[Path, str]] = []
+    timings: list[tuple[Path, _WorkerResult]] = []
 
     if workers == 1:
         loader = FitsLoader()
         pipeline = StreakPipeline.from_config(cfg)
         for path in paths:
-            err = _process_one_path(loader, pipeline, path)
-            if err:
-                errors.append((path, err))
+            wr = _process_one_path(loader, pipeline, path)
+            timings.append((path, wr))
+            _log_file_timing(path, wr)
+            if wr.error:
+                errors.append((path, wr.error))
                 if fail_fast:
+                    _write_timing_log(timings, timing_log_path)
                     return errors
     else:
         with ProcessPoolExecutor(
@@ -213,28 +234,79 @@ def _run_pipeline(
             for future in as_completed(future_to_path):
                 path = future_to_path[future]
                 try:
-                    err = future.result()
-                    if err:
-                        errors.append((path, err))
+                    wr = future.result()
+                    timings.append((path, wr))
+                    _log_file_timing(path, wr)
+                    if wr.error:
+                        errors.append((path, wr.error))
                         if fail_fast:
+                            _write_timing_log(timings, timing_log_path)
                             return errors
                 except Exception as exc:
+                    wr = _WorkerResult(error=str(exc), elapsed_s=0.0, pid=0)
+                    timings.append((path, wr))
                     errors.append((path, str(exc)))
                     if fail_fast:
+                        _write_timing_log(timings, timing_log_path)
                         return errors
 
+    _log_timing_summary(timings)
+    _write_timing_log(timings, timing_log_path)
     return errors
 
 
-def _process_one_path(loader, pipeline, path: Path) -> Optional[str]:
+def _log_file_timing(path: Path, wr: _WorkerResult) -> None:
+    status = "error" if wr.error else "ok"
+    logger.info(
+        "[pid %d] %s — %.2fs (%s)",
+        wr.pid, path.name, wr.elapsed_s, status,
+    )
+
+
+def _log_timing_summary(timings: list[tuple[Path, _WorkerResult]]) -> None:
+    if not timings:
+        return
+    elapsed = [wr.elapsed_s for _, wr in timings]
+    total = sum(elapsed)
+    avg = total / len(elapsed)
+    min_idx = elapsed.index(min(elapsed))
+    max_idx = elapsed.index(max(elapsed))
+    logger.info(
+        "Timing summary: %d file(s) | total=%.2fs | avg=%.2fs | "
+        "min=%.2fs (%s) | max=%.2fs (%s)",
+        len(timings),
+        total, avg,
+        elapsed[min_idx], timings[min_idx][0].name,
+        elapsed[max_idx], timings[max_idx][0].name,
+    )
+
+
+def _write_timing_log(
+    timings: list[tuple[Path, _WorkerResult]],
+    timing_log_path: Optional[Path],
+) -> None:
+    if not timing_log_path or not timings:
+        return
+    with open(timing_log_path, "w", newline="") as fh:
+        writer = csv.writer(fh)
+        writer.writerow(["file", "worker_pid", "elapsed_s", "status"])
+        for path, wr in timings:
+            status = f"error: {wr.error}" if wr.error else "ok"
+            writer.writerow([str(path), wr.pid, f"{wr.elapsed_s:.4f}", status])
+    logger.info("Timing log written to %s", timing_log_path)
+
+
+def _process_one_path(loader, pipeline, path: Path) -> _WorkerResult:
+    pid = os.getpid()
+    t0 = time.perf_counter()
     try:
         image = loader.load(path)
         result = pipeline.process(image)
-        if result.error:
-            return result.error
-        return None
+        elapsed = time.perf_counter() - t0
+        return _WorkerResult(error=result.error or None, elapsed_s=elapsed, pid=pid)
     except Exception as exc:
-        return str(exc)
+        elapsed = time.perf_counter() - t0
+        return _WorkerResult(error=str(exc), elapsed_s=elapsed, pid=pid)
 
 
 # Module-level state populated once per worker process by _init_worker.
@@ -252,7 +324,7 @@ def _init_worker(cfg: PipelineConfig) -> None:
     _worker_pipeline = StreakPipeline.from_config(cfg)
 
 
-def _process_path_worker(path_str: str) -> Optional[str]:
+def _process_path_worker(path_str: str) -> _WorkerResult:
     """Top-level function suitable for ProcessPoolExecutor (must be picklable)."""
     return _process_one_path(_worker_loader, _worker_pipeline, Path(path_str))
 
