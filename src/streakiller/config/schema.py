@@ -73,8 +73,7 @@ from streakiller.config.defaults import (
     PEAK_HOUGH_THRESHOLD_SIGMA,
     PEAK_HOUGH_HOUGH_THRESHOLD,
     PEAK_HOUGH_MAX_LINE_GAP,
-    PEAK_HOUGH_ENDPOINT_WALK_SIGMA,
-    PEAK_HOUGH_ENDPOINT_GAP_TOLERANCE,
+    PEAK_HOUGH_DILATION_KERNEL,
 )
 
 # Keys in old config.json that were misspelled.  Maps old_key -> canonical_key.
@@ -112,9 +111,7 @@ class PeakHoughParams:
     max_line_gap: int              = PEAK_HOUGH_MAX_LINE_GAP
     rho: float                     = HOUGH_RHO
     theta_deg: float               = HOUGH_THETA_DEG
-    # endpoint walk-out
-    endpoint_walk_sigma: float     = PEAK_HOUGH_ENDPOINT_WALK_SIGMA
-    endpoint_gap_tolerance: int    = PEAK_HOUGH_ENDPOINT_GAP_TOLERANCE
+    dilation_kernel: int           = PEAK_HOUGH_DILATION_KERNEL
 
 
 @dataclass
@@ -380,13 +377,9 @@ class PipelineConfig:
             raise ConfigError(
                 f"peak_hough_params.hough_threshold must be >= 1, got {php.hough_threshold}"
             )
-        if php.endpoint_walk_sigma < 0:
+        if php.dilation_kernel < 1:
             raise ConfigError(
-                f"peak_hough_params.endpoint_walk_sigma must be >= 0, got {php.endpoint_walk_sigma}"
-            )
-        if php.endpoint_gap_tolerance < 0:
-            raise ConfigError(
-                f"peak_hough_params.endpoint_gap_tolerance must be >= 0, got {php.endpoint_gap_tolerance}"
+                f"peak_hough_params.dilation_kernel must be >= 1, got {php.dilation_kernel}"
             )
 
         fp = self.filter_params
