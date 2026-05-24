@@ -77,6 +77,14 @@ class TestValidation:
         with pytest.raises(ConfigError, match="peak_hough_params.hough_threshold"):
             cfg.validate()
 
+    def test_rejects_invalid_peak_hough_support_fraction(self):
+        cfg = PipelineConfig(
+            images_dir=".", output_dir=".",
+            peak_hough_params=PeakHoughParams(min_support_fraction=1.5),
+        )
+        with pytest.raises(ConfigError, match="peak_hough_params.min_support_fraction"):
+            cfg.validate()
+
     def test_rejects_length_fraction_out_of_range(self):
         for bad in (0.0, -0.1, 1.1):
             cfg = PipelineConfig(
@@ -175,6 +183,40 @@ class TestFromJson:
     def test_missing_file_raises(self, tmp_path: Path):
         with pytest.raises(FileNotFoundError):
             PipelineConfig.from_json(tmp_path / "nonexistent.json")
+
+    def test_loads_peak_hough_params(self, tmp_path: Path):
+        cfg_data = {
+            "images_dir": ".",
+            "output_dir": ".",
+            "peak_hough_params": {
+                "min_support_fraction": 0.42,
+                "dilation_kernel": 5,
+            },
+        }
+        p = tmp_path / "config.json"
+        p.write_text(json.dumps(cfg_data))
+
+        cfg = PipelineConfig.from_json(p)
+
+        assert cfg.peak_hough_params.min_support_fraction == 0.42
+        assert cfg.peak_hough_params.dilation_kernel == 5
+
+    def test_loads_background_params(self, tmp_path: Path):
+        cfg_data = {
+            "images_dir": ".",
+            "output_dir": ".",
+            "background_params": {
+                "per_row_median_sigma_mult": 3.25,
+                "per_row_median_morph_kernel": 1,
+            },
+        }
+        p = tmp_path / "config.json"
+        p.write_text(json.dumps(cfg_data))
+
+        cfg = PipelineConfig.from_json(p)
+
+        assert cfg.background_params.per_row_median_sigma_mult == 3.25
+        assert cfg.background_params.per_row_median_morph_kernel == 1
 
 
 # ------------------------------------------------------------------ #

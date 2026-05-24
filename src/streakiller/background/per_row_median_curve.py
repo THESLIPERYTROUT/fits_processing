@@ -50,12 +50,27 @@ class PerRowMedianCurveEstimator:
         else:
             residual_for_threshold = residual
 
-        med = float(np.median(residual_for_threshold))
-        mad = float(np.median(np.abs(residual_for_threshold - med))) + 1e-6
-        sigma = MAD_NORMALIZATION_FACTOR * mad
-        threshold = med + params.per_row_median_sigma_mult * sigma
+        global_med = float(np.median(residual_for_threshold))
+        global_mad = (
+            float(np.median(np.abs(residual_for_threshold - global_med))) + 1e-6
+        )
+        global_sigma = MAD_NORMALIZATION_FACTOR * global_mad
+
+        row_meds = np.median(residual_for_threshold, axis=1, keepdims=True)
+        row_mads = (
+            np.median(np.abs(residual_for_threshold - row_meds), axis=1, keepdims=True)
+            + 1e-6
+        )
+        row_sigmas = MAD_NORMALIZATION_FACTOR * row_mads
+        sigma = np.maximum(row_sigmas, global_sigma)
+        threshold = global_med + params.per_row_median_sigma_mult * sigma
 
         binary = (residual_for_threshold >= threshold).astype(np.uint8) * 255
+
+        binary = self._remove_small_components(
+            binary,
+            params.per_row_median_min_component_pixels,
+        )
 
         k = params.per_row_median_morph_kernel
         if k > 1:
@@ -74,7 +89,7 @@ class PerRowMedianCurveEstimator:
             params.per_row_median_degree,
             params.per_row_median_row_window,
             params.per_row_median_sigma_mult,
-            threshold,
+            float(np.median(threshold)),
             int(np.count_nonzero(binary)),
         )
         return binary

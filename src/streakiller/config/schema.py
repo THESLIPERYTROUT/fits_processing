@@ -73,6 +73,11 @@ from streakiller.config.defaults import (
     PEAK_HOUGH_THRESHOLD_SIGMA,
     PEAK_HOUGH_HOUGH_THRESHOLD,
     PEAK_HOUGH_MAX_LINE_GAP,
+    PEAK_HOUGH_DILATION_KERNEL,
+    PEAK_HOUGH_SUPPORT_RADIUS,
+    PEAK_HOUGH_MIN_SUPPORT_FRACTION,
+    PEAK_HOUGH_MIN_SUPPORT_PIXELS,
+    PEAK_HOUGH_MIN_MEAN_SNR,
     PEAK_HOUGH_ENDPOINT_WALK_SIGMA,
     PEAK_HOUGH_ENDPOINT_GAP_TOLERANCE,
 )
@@ -112,9 +117,24 @@ class PeakHoughParams:
     max_line_gap: int              = PEAK_HOUGH_MAX_LINE_GAP
     rho: float                     = HOUGH_RHO
     theta_deg: float               = HOUGH_THETA_DEG
+    dilation_kernel: int           = PEAK_HOUGH_DILATION_KERNEL
+    support_radius: int            = PEAK_HOUGH_SUPPORT_RADIUS
+    min_support_fraction: float    = PEAK_HOUGH_MIN_SUPPORT_FRACTION
+    min_support_pixels: int        = PEAK_HOUGH_MIN_SUPPORT_PIXELS
+    min_mean_snr: float            = PEAK_HOUGH_MIN_MEAN_SNR
     # endpoint walk-out
     endpoint_walk_sigma: float     = PEAK_HOUGH_ENDPOINT_WALK_SIGMA
     endpoint_gap_tolerance: int    = PEAK_HOUGH_ENDPOINT_GAP_TOLERANCE
+
+    @classmethod
+    def from_dict(cls, raw: dict) -> "PeakHoughParams":
+        remapped = _remap_keys(raw)
+        values = {
+            field_name: remapped[field_name]
+            for field_name in cls.__dataclass_fields__
+            if field_name in remapped
+        }
+        return cls(**values)
 
 
 @dataclass
@@ -151,6 +171,18 @@ class BackgroundParams:
     per_row_median_filter_size: int = PER_ROW_MEDIAN_FILTER_SIZE
     per_row_median_min_component_pixels: int = PER_ROW_MEDIAN_MIN_COMPONENT_PIXELS
     per_row_median_morph_kernel: int = PER_ROW_MEDIAN_MORPH_KERNEL
+
+    @classmethod
+    def from_dict(cls, raw: dict) -> "BackgroundParams":
+        remapped = _remap_keys(raw)
+        values = {
+            field_name: remapped[field_name]
+            for field_name in cls.__dataclass_fields__
+            if field_name in remapped
+        }
+        if "gaussian_sigma_ladder" in values:
+            values["gaussian_sigma_ladder"] = tuple(values["gaussian_sigma_ladder"])
+        return cls(**values)
 
 
 @dataclass
@@ -380,6 +412,28 @@ class PipelineConfig:
             raise ConfigError(
                 f"peak_hough_params.hough_threshold must be >= 1, got {php.hough_threshold}"
             )
+        if php.dilation_kernel < 1:
+            raise ConfigError(
+                f"peak_hough_params.dilation_kernel must be >= 1, got {php.dilation_kernel}"
+            )
+        if php.support_radius < 0:
+            raise ConfigError(
+                f"peak_hough_params.support_radius must be >= 0, got {php.support_radius}"
+            )
+        if not (0.0 <= php.min_support_fraction <= 1.0):
+            raise ConfigError(
+                "peak_hough_params.min_support_fraction must be in [0, 1], "
+                f"got {php.min_support_fraction}"
+            )
+        if php.min_support_pixels < 0:
+            raise ConfigError(
+                "peak_hough_params.min_support_pixels must be >= 0, "
+                f"got {php.min_support_pixels}"
+            )
+        if php.min_mean_snr < 0:
+            raise ConfigError(
+                f"peak_hough_params.min_mean_snr must be >= 0, got {php.min_mean_snr}"
+            )
         if php.endpoint_walk_sigma < 0:
             raise ConfigError(
                 f"peak_hough_params.endpoint_walk_sigma must be >= 0, got {php.endpoint_walk_sigma}"
@@ -428,6 +482,11 @@ class PipelineConfig:
             raise ConfigError(
                 "background_params.per_row_median_min_component_pixels must be >= 1, "
                 f"got {bp.per_row_median_min_component_pixels}"
+            )
+        if bp.per_row_median_morph_kernel < 1:
+            raise ConfigError(
+                "background_params.per_row_median_morph_kernel must be >= 1, "
+                f"got {bp.per_row_median_morph_kernel}"
             )
 
         sp = self.snr_params
@@ -491,14 +550,18 @@ class PipelineConfig:
             background_detection_method=BackgroundMethod.from_dict(
                 raw.get("background_detection_method", {})
             ),
-            background_params=BackgroundParams(),
+            background_params=BackgroundParams.from_dict(
+                raw.get("background_params", {})
+            ),
             filter_params=FilterParams(),
             hough_params=HoughParams(),
             detection_method=DetectionMethod.from_dict(
                 raw.get("detection_method", {})
             ),
             fft_detector_params=FftDetectorParams(),
-            peak_hough_params=PeakHoughParams(),
+            peak_hough_params=PeakHoughParams.from_dict(
+                raw.get("peak_hough_params", {})
+            ),
             output_options=OutputOptions(
                 save_intermediate_images=raw.get("save_intermediate_images", False),
                 save_text_summary=raw.get("save_text_summary", True),

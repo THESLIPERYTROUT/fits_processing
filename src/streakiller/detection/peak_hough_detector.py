@@ -173,9 +173,10 @@ class PeakHoughDetector:
         sparse = _binary_from_peaks(clipped.shape, peak_xs, peak_ys)
 
         # 4. Dilate slightly so adjacent peak pixels form connected blobs for Hough
+        k = max(1, int(p.dilation_kernel))
         hough_binary = cv2.dilate(
             sparse.astype(np.uint8) * 255,
-            np.ones((3, 3), dtype=np.uint8),
+            np.ones((k, k), dtype=np.uint8),
         )
 
         # 5. HoughLinesP on the sparse dilated mask
@@ -192,10 +193,14 @@ class PeakHoughDetector:
             logger.info("PeakHoughDetector: HoughLinesP found no lines")
             lines: np.ndarray = np.empty((0, 1, 4), dtype=np.int32)
         else:
-            lines = raw
+            lines = raw.astype(np.int32, copy=False)
             logger.info("PeakHoughDetector: HoughLinesP found %d raw lines", len(lines))
 
-        # 6. Endpoint walk-out through continuous walk residual
+        # 6. Reject Hough alignments that are not supported by enough real signal.
+        lines = self._filter_supported_lines(lines, walk_residual, sparse)
+
+        # 7. Endpoint walk-out through continuous walk residual, after support
+        # filtering so random alignments do not get extended into worse noise.
         lines = self._refine_endpoints(lines, walk_residual)
 
         return RawDetection(
@@ -207,6 +212,91 @@ class PeakHoughDetector:
     # ------------------------------------------------------------------ #
     # Private helpers                                                      #
     # ------------------------------------------------------------------ #
+
+    def _filter_supported_lines(
+        self,
+        lines: np.ndarray,
+        residual: np.ndarray,
+        sparse_peak_mask: np.ndarray,
+    ) -> np.ndarray:
+        p = self._p
+        if len(lines) == 0:
+            return lines
+
+        sigma = self._robust_sigma(residual)
+        kept: list[list[int]] = []
+        for seg in lines[:, 0, :]:
+            x1, y1, x2, y2 = [int(v) for v in seg]
+            xs, ys = self._sample_line(x1, y1, x2, y2, residual.shape)
+            if len(xs) == 0:
+                continue
+
+            peak_support = self._count_peak_support(xs, ys, sparse_peak_mask, p.support_radius)
+            support_fraction = peak_support / len(xs)
+            values = residual[ys, xs]
+            positive_mean_snr = float(np.mean(np.maximum(values, 0.0)) / sigma)
+
+            if peak_support < p.min_support_pixels:
+                continue
+            if support_fraction < p.min_support_fraction:
+                continue
+            if positive_mean_snr < p.min_mean_snr:
+                continue
+
+            kept.append([x1, y1, x2, y2])
+
+        logger.info(
+            "PeakHoughDetector: support filter kept %d/%d raw lines",
+            len(kept),
+            len(lines),
+        )
+        if not kept:
+            return np.empty((0, 1, 4), dtype=np.int32)
+        return np.asarray(kept, dtype=np.int32).reshape(-1, 1, 4)
+
+    @staticmethod
+    def _sample_line(
+        x1: int,
+        y1: int,
+        x2: int,
+        y2: int,
+        shape: tuple[int, int],
+    ) -> tuple[np.ndarray, np.ndarray]:
+        height, width = shape
+        n = max(int(round(np.hypot(x2 - x1, y2 - y1))) + 1, 1)
+        xs = np.rint(np.linspace(x1, x2, n)).astype(int)
+        ys = np.rint(np.linspace(y1, y2, n)).astype(int)
+        in_bounds = (0 <= xs) & (xs < width) & (0 <= ys) & (ys < height)
+        if not np.any(in_bounds):
+            return np.array([], dtype=int), np.array([], dtype=int)
+        coords = np.column_stack((xs[in_bounds], ys[in_bounds]))
+        coords = np.unique(coords, axis=0)
+        return coords[:, 0], coords[:, 1]
+
+    @staticmethod
+    def _count_peak_support(
+        xs: np.ndarray,
+        ys: np.ndarray,
+        sparse_peak_mask: np.ndarray,
+        radius: int,
+    ) -> int:
+        height, width = sparse_peak_mask.shape
+        radius = max(0, int(radius))
+        count = 0
+        for x, y in zip(xs, ys):
+            x0 = max(0, x - radius)
+            x1 = min(width, x + radius + 1)
+            y0 = max(0, y - radius)
+            y1 = min(height, y + radius + 1)
+            if np.any(sparse_peak_mask[y0:y1, x0:x1]):
+                count += 1
+        return count
+
+    @staticmethod
+    def _robust_sigma(image: np.ndarray) -> float:
+        med = float(np.median(image))
+        mad = float(np.median(np.abs(image - med)))
+        return _MAD_FACTOR * mad + 1e-6
 
     def _refine_endpoints(self, lines: np.ndarray, residual: np.ndarray) -> np.ndarray:
         p = self._p

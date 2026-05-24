@@ -10,16 +10,16 @@
     "enabled_line_filters":
     {
         "midpoint_filter": true,
-        "colinear_filter": false,
+        "colinear_filter": true,
         "line_angle": true,
         "endpoint_filter" : true,
         "length_filter" : true
     },
 
     "detection_method": {
-        "hough": false,
+        "hough": true,
         "fft_correlation": false,
-        "peak_hough": true
+        "peak_hough": false
     },
 
     "background_detection_method":

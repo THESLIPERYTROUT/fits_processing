@@ -117,6 +117,23 @@ class TestPerRowMedianCurveEstimator:
         assert result[20, 20] == 0
         assert result[80, 90] == 0
 
+    def test_noisy_rows_do_not_dominate_mask(self):
+        rng = np.random.default_rng(4)
+        data = rng.normal(1000.0, 10.0, (128, 128)).astype(np.float32)
+        data[64:, :] = rng.normal(1000.0, 45.0, (64, 128)).astype(np.float32)
+
+        params = BackgroundParams(
+            per_row_median_sigma_mult=2.5,
+            per_row_median_min_component_pixels=10,
+            per_row_median_morph_kernel=1,
+        )
+        result = PerRowMedianCurveEstimator().estimate(data, params)
+
+        quiet_fraction = np.mean(result[:64, :] == 255)
+        noisy_fraction = np.mean(result[64:, :] == 255)
+        assert noisy_fraction < 0.05
+        assert noisy_fraction < max(quiet_fraction * 8, 0.02)
+
 
 class TestGaussianBlurEstimator:
     def test_streak_pixels_mostly_foreground(self, streak_image):

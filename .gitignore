@@ -12,3 +12,4 @@ testing_shit/
 calibration_frames/**
 images/**
 dev_tools/
+config.json
