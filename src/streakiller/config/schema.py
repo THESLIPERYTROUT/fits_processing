@@ -27,6 +27,7 @@ from streakiller.config.defaults import (
     MAX_LENGTH_FACTOR,
     COLINEAR_ORIENTATION_TOL,
     COLINEAR_MAX_ENDPOINT_DISTANCE,
+    ON_STREAK_PROXIMITY_PX,
     MAX_RAW_LINES,
     GAUSSIAN_KERNEL_SIZE,
     GAUSSIAN_SIGMA_LADDER,
@@ -135,6 +136,7 @@ class FilterParams:
     max_length_factor: float = MAX_LENGTH_FACTOR
     colinear_orientation_tol: float = COLINEAR_ORIENTATION_TOL
     colinear_max_endpoint_distance: float = COLINEAR_MAX_ENDPOINT_DISTANCE
+    on_streak_proximity_px: float = ON_STREAK_PROXIMITY_PX
     max_raw_lines: int = MAX_RAW_LINES
 
 
@@ -179,6 +181,7 @@ class EnabledFilters:
     midpoint_filter: bool = True
     line_angle: bool = True
     colinear_filter: bool = False
+    on_streak_filter: bool = False
     endpoint_filter: bool = True
     length_filter: bool = True
 
@@ -190,6 +193,7 @@ class EnabledFilters:
             midpoint_filter=remapped.get("midpoint_filter", True),
             line_angle=remapped.get("line_angle", True),
             colinear_filter=remapped.get("colinear_filter", False),
+            on_streak_filter=remapped.get("on_streak_filter", False),
             endpoint_filter=remapped.get("endpoint_filter", True),
             length_filter=remapped.get("length_filter", True),
         )

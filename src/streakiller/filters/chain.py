@@ -39,30 +39,32 @@ class FilterChain:
         """
         Build the chain from the enabled-filters config.
 
-        Order is fixed: angle -> colinear -> length -> midpoint -> endpoint.
-        Colinear merge must precede length and endpoint so short fragments are
-        joined before being judged by size or proximity. Midpoint deduplication
-        runs after length so short fragments cannot suppress a better
-        same-midpoint candidate.
+        Order is fixed: angle -> colinear -> on_streak -> length -> midpoint -> endpoint.
+        Colinear merge must precede on_streak and length so fragments are joined
+        before duplicate-detection.  on_streak removes HoughLinesP shadows before
+        the length filter so the modal-length estimate is not distorted by small
+        duplicates.  Midpoint/endpoint deduplication runs last.
         """
         from streakiller.filters.midpoint import midpoint_filter
         from streakiller.filters.angle import angle_filter
         from streakiller.filters.colinear import colinear_merge
         from streakiller.filters.endpoint import endpoint_filter
         from streakiller.filters.length import length_filter
+        from streakiller.filters.on_streak import on_streak_filter
 
         steps: list[tuple[str, FilterFn]] = []
         if enabled.line_angle:
             steps.append(("angle_filter", angle_filter))
         if enabled.colinear_filter:
             steps.append(("colinear_merge", colinear_merge))
+        if enabled.on_streak_filter:
+            steps.append(("on_streak_filter", on_streak_filter))
+        if enabled.length_filter:
+            steps.append(("length_filter", length_filter))
         if enabled.midpoint_filter:
             steps.append(("midpoint_filter", midpoint_filter))
         if enabled.endpoint_filter:
             steps.append(("endpoint_filter", endpoint_filter))
-        if enabled.length_filter:
-            steps.append(("length_filter", length_filter))
-
 
         return cls(steps)
 

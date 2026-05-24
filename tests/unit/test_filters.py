@@ -1,4 +1,4 @@
-"""Unit tests for the five filter pure functions."""
+"""Unit tests for the filter pure functions."""
 from __future__ import annotations
 
 import numpy as np
@@ -11,6 +11,7 @@ from streakiller.filters.angle import angle_filter
 from streakiller.filters.endpoint import endpoint_filter
 from streakiller.filters.colinear import colinear_merge
 from streakiller.filters.length import length_filter
+from streakiller.filters.on_streak import on_streak_filter
 
 
 def _line(x1, y1, x2, y2) -> np.ndarray:
@@ -24,18 +25,40 @@ def _lines(*coords) -> np.ndarray:
 
 
 # ------------------------------------------------------------------ #
-# Shared edge-case tests applied to all five filters                  #
+# Shared edge-case tests applied to all filters                       #
 # ------------------------------------------------------------------ #
 
-FILTER_FNS = [midpoint_filter, angle_filter, endpoint_filter, colinear_merge, length_filter]
+FILTER_FNS = [midpoint_filter, angle_filter, endpoint_filter, colinear_merge, length_filter, on_streak_filter]
 
 
-def test_filter_chain_order_places_midpoint_after_length():
+def test_filter_chain_full_order():
     chain = FilterChain.from_config(
         EnabledFilters(
             midpoint_filter=True,
             line_angle=True,
             colinear_filter=True,
+            on_streak_filter=True,
+            endpoint_filter=True,
+            length_filter=True,
+        )
+    )
+    assert chain.step_names == [
+        "angle_filter",
+        "colinear_merge",
+        "on_streak_filter",
+        "length_filter",
+        "midpoint_filter",
+        "endpoint_filter",
+    ]
+
+
+def test_filter_chain_order_without_on_streak():
+    chain = FilterChain.from_config(
+        EnabledFilters(
+            midpoint_filter=True,
+            line_angle=True,
+            colinear_filter=True,
+            on_streak_filter=False,
             endpoint_filter=True,
             length_filter=True,
         )
@@ -306,3 +329,74 @@ class TestLengthFilter:
         result = length_filter(lines, FilterParams(length_fraction=0.9))
         # modal ~105, min_allowed ~94.5 — only the 6 long streaks survive
         assert len(result) == 6
+
+
+# ------------------------------------------------------------------ #
+# OnStreakFilter                                                       #
+# ------------------------------------------------------------------ #
+
+class TestOnStreakFilter:
+    def test_removes_short_duplicate_on_same_horizontal_line(self):
+        # Long line: horizontal at y=50 from x=0 to x=200.
+        # Short duplicate: same y, subset span — both endpoints within 0px of the long line.
+        lines = _lines((0, 50, 200, 50), (50, 50, 100, 50))
+        result = on_streak_filter(lines, FilterParams(on_streak_proximity_px=2.0))
+        assert len(result) == 1
+        # The survivor must be the longer one.
+        assert result[0, 0, 2] - result[0, 0, 0] == 200
+
+    def test_removes_short_duplicate_offset_by_1px(self):
+        # Long diagonal; short fragment whose endpoints are 1 px off the infinite line.
+        # Line A: (0,0)→(100,100), infinite line is y=x.
+        # Line B: (40,41)→(60,61) — both endpoints are 1/√2 ≈ 0.7 px from y=x.
+        lines = _lines((0, 0, 100, 100), (40, 41, 60, 61))
+        result = on_streak_filter(lines, FilterParams(on_streak_proximity_px=2.0))
+        assert len(result) == 1
+
+    def test_keeps_truly_separate_parallel_lines(self):
+        # Two parallel horizontal lines 20 px apart — not the same streak.
+        lines = _lines((0, 0, 200, 0), (0, 20, 200, 20))
+        result = on_streak_filter(lines, FilterParams(on_streak_proximity_px=3.0))
+        assert len(result) == 2
+
+    def test_longer_line_wins_over_shorter(self):
+        # Two overlapping horizontal lines; shorter submitted first.
+        # Filter is longest-first so the short one should always be dropped.
+        lines = _lines((20, 50, 80, 50), (0, 50, 200, 50))
+        result = on_streak_filter(lines, FilterParams(on_streak_proximity_px=2.0))
+        assert len(result) == 1
+        assert result[0, 0, 0] == 0   # starts at x=0 (the longer line)
+
+    def test_many_duplicates_of_one_streak_collapse_to_one(self):
+        # 1 long line + 4 short fragments all on the same horizontal infinite line.
+        lines = _lines(
+            (0, 100, 500, 100),  # long — kept
+            (10, 100, 80, 100),  # short duplicate
+            (100, 100, 180, 100),
+            (200, 100, 280, 100),
+            (300, 100, 380, 100),
+        )
+        result = on_streak_filter(lines, FilterParams(on_streak_proximity_px=2.0))
+        assert len(result) == 1
+
+    def test_proximity_threshold_is_respected(self):
+        # Short line whose endpoints are exactly 5 px from the accepted line.
+        # At proximity=3, kept; at proximity=6, removed.
+        # Long line: (0,0)→(200,0), infinite line is y=0.
+        # Short line at y=5: endpoints are exactly 5 px away.
+        lines = _lines((0, 0, 200, 0), (50, 5, 100, 5))
+        tight = on_streak_filter(lines, FilterParams(on_streak_proximity_px=3.0))
+        loose = on_streak_filter(lines, FilterParams(on_streak_proximity_px=6.0))
+        assert len(tight) == 2   # 5 px > 3 → not a duplicate, both kept
+        assert len(loose) == 1   # 5 px < 6 → duplicate removed
+
+    def test_no_mutation_of_input(self):
+        lines = _lines((0, 0, 200, 0), (50, 1, 100, 1))
+        original = lines.copy()
+        on_streak_filter(lines, FilterParams(on_streak_proximity_px=3.0))
+        np.testing.assert_array_equal(lines, original)
+
+    def test_output_dtype_is_int32(self):
+        lines = _lines((0, 0, 100, 0), (10, 0, 50, 0))
+        result = on_streak_filter(lines, FilterParams(on_streak_proximity_px=2.0))
+        assert result.dtype == np.int32
