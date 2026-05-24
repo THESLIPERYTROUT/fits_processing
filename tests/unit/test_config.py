@@ -77,14 +77,6 @@ class TestValidation:
         with pytest.raises(ConfigError, match="peak_hough_params.hough_threshold"):
             cfg.validate()
 
-    def test_rejects_invalid_peak_hough_mode(self):
-        cfg = PipelineConfig(
-            images_dir=".", output_dir=".",
-            peak_hough_params=PeakHoughParams(peak_mode="nope"),
-        )
-        with pytest.raises(ConfigError, match="peak_hough_params.peak_mode"):
-            cfg.validate()
-
     def test_rejects_length_fraction_out_of_range(self):
         for bad in (0.0, -0.1, 1.1):
             cfg = PipelineConfig(

@@ -79,22 +79,14 @@ FFT_TEMPLATE_EDGE_MARGIN = 15    # template candidates closer than N px to the i
 FFT_STREAK_EDGE_MARGIN = 5       # detected streaks closer than N px to the image edge are rejected
 FFT_PROMINENCE_FRACTION = 0.5    # reject peaks below this fraction of the maximum correlation score
 
-# --- Peak-Hough detector ---
-PEAK_HOUGH_THRESHOLD_SIGMA = 3.0        # binary mask: keep pixels above N·σ_global(residual)
-PEAK_HOUGH_GAUSSIAN_KERNEL_SIZE = 51    # high-pass background kernel (must be odd)
-PEAK_HOUGH_ENDPOINT_WALK_SIGMA = 1.5    # walk-out floor = N × σ_local at endpoint
-PEAK_HOUGH_ENDPOINT_GAP_TOLERANCE = 3   # consecutive below-floor steps before stopping
-# --- Peak-Hough Detector (row median-curve peaks + HoughLinesP) ---
-PEAK_HOUGH_MEDIAN_BINS = 80          # median samples used across each row
-PEAK_HOUGH_POLYNOMIAL_DEGREE = 6     # polynomial degree for row baseline fit
-PEAK_HOUGH_SMOOTH_SIGMA = 5.0        # horizontal smoothing before peak detection
-PEAK_HOUGH_THRESHOLD_SIGMA = 2     # peak height threshold = N * row residual std
-PEAK_HOUGH_THRESHOLD = 8            # Hough vote threshold for sparse peak masks
-PEAK_HOUGH_MAX_LINE_GAP = 15          # max pixel gap within one Hough line segment
-PEAK_HOUGH_RHO = 1.0                 # Hough distance resolution (pixels)
-PEAK_HOUGH_THETA_DEG = 1.0           # Hough angle resolution (degrees)
-PEAK_HOUGH_DILATION_KERNEL = 5       # optional peak-mask dilation before Hough
-PEAK_HOUGH_PEAK_MODE = "local_2d"    # "local_2d" or "row_1d"
-PEAK_HOUGH_LOCAL_WINDOW = 31         # 2D local noise window for peak thresholding
-PEAK_HOUGH_LOCAL_MAX_SIZE = 3        # neighbourhood size for 2D local maxima
-PEAK_HOUGH_GLOBAL_FLOOR_SIGMA = 1.0  # global residual std floor mixed into threshold
+# --- Peak-Hough detector (per-row polynomial baseline + find_peaks) ---
+PEAK_HOUGH_CLIP_PERCENTILE_LOW = 1.0          # lower percentile clip before background fit
+PEAK_HOUGH_CLIP_PERCENTILE_HIGH = 99.0        # upper percentile clip
+PEAK_HOUGH_MEDIAN_BINS = 80                   # per-row bin count for median background curve
+PEAK_HOUGH_POLYNOMIAL_DEGREE = 3              # polynomial degree for per-row baseline fit
+PEAK_HOUGH_BACKGROUND_SMOOTH_SIGMA = 5.0      # Gaussian smooth sigma (along rows) before fitting
+PEAK_HOUGH_THRESHOLD_SIGMA = 2.0              # per-row peak threshold: N × std(row residual)
+PEAK_HOUGH_HOUGH_THRESHOLD = 10               # Hough vote threshold (lower than dense-mask default)
+PEAK_HOUGH_MAX_LINE_GAP = 10                  # Hough max gap (wider than dense-mask default)
+PEAK_HOUGH_ENDPOINT_WALK_SIGMA = 1.5          # walk-out floor = N × σ_local at endpoint
+PEAK_HOUGH_ENDPOINT_GAP_TOLERANCE = 3         # consecutive below-floor steps before stopping
