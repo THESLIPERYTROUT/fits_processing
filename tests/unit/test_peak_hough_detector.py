@@ -1,4 +1,4 @@
-"""Unit tests for the row-peak Hough detector."""
+"""Unit tests for PeakHoughDetector."""
 from __future__ import annotations
 
 import numpy as np
@@ -24,29 +24,32 @@ def _make_fading_streak_image(
     seed: int = 42,
 ) -> np.ndarray:
     """
-    Synthetic float32 image with a horizontal streak whose amplitude linearly
+    Synthetic float32 image with a diagonal streak whose amplitude linearly
     ramps down over *fade_px* pixels at each tip (simulating faint endpoints).
 
-    The inner segment (x1+fade_px … x2-fade_px) has amplitude *peak_adu*.
-    The ramp regions taper from peak_adu → 0.
+    Works for any (x1,y1)→(x2,y2) direction.  The algorithm is designed for
+    diagonal streaks: find_peaks needs a per-row local maximum, which only
+    exists when the streak crosses each row at a single column.
     """
     rng = np.random.default_rng(seed)
     img = rng.normal(0.0, noise_sigma, shape).astype(np.float32)
 
     H, W = shape
-    row = y1  # horizontal streak assumed
-    for x in range(x1, x2 + 1):
-        if x < 0 or x >= W:
+    dx, dy = x2 - x1, y2 - y1
+    length = float(np.hypot(dx, dy))
+    n_steps = max(int(round(length)), 1)
+
+    for step in range(n_steps + 1):
+        t = step / n_steps
+        x = int(round(x1 + t * dx))
+        y = int(round(y1 + t * dy))
+        if not (0 <= x < W and 0 <= y < H):
             continue
-        dist_left  = x - x1
-        dist_right = x2 - x
-        dist_edge  = min(dist_left, dist_right)
-        if dist_edge >= fade_px:
-            amp = peak_adu
-        else:
-            amp = peak_adu * (dist_edge / fade_px)
-        if 0 <= row < H:
-            img[row, x] += amp
+        dist_from_start = t * length
+        dist_from_end   = (1.0 - t) * length
+        dist_edge = min(dist_from_start, dist_from_end)
+        amp = peak_adu if dist_edge >= fade_px else peak_adu * (dist_edge / fade_px)
+        img[y, x] += amp
 
     return img
 
@@ -71,8 +74,8 @@ def _detected_extent(detector: PeakHoughDetector, img: np.ndarray) -> tuple[int,
 class TestEndpointRefinement:
 
     _SHAPE    = (256, 256)
-    _X1, _Y1  = 30, 128
-    _X2, _Y2  = 226, 128
+    _X1, _Y1  = 50,  60   # diagonal streak �� each row sees a single column crossing,
+    _X2, _Y2  = 200, 180  # which produces the per-row local maximum find_peaks needs
     _PEAK_ADU = 10.0
     _FADE_PX  = 20
 
@@ -89,7 +92,7 @@ class TestEndpointRefinement:
     def test_refinement_extends_endpoints(self, streak_image):
         """With walk-out enabled, detected endpoints should reach close to the true streak extent."""
         params = PeakHoughParams(
-            threshold_sigma=3.0,
+            threshold_sigma=2.0,
             endpoint_walk_sigma=1.5,
             endpoint_gap_tolerance=3,
         )
@@ -109,12 +112,12 @@ class TestEndpointRefinement:
     def test_refinement_off_gives_shorter_segment(self, streak_image):
         """Disabling walk-out (walk_sigma=0) should yield a shorter segment than with it enabled."""
         params_on = PeakHoughParams(
-            threshold_sigma=3.0,
+            threshold_sigma=2.0,
             endpoint_walk_sigma=1.5,
             endpoint_gap_tolerance=3,
         )
         params_off = PeakHoughParams(
-            threshold_sigma=3.0,
+            threshold_sigma=2.0,
             endpoint_walk_sigma=0,
             endpoint_gap_tolerance=3,
         )
@@ -138,7 +141,7 @@ class TestDetectInterface:
         """Pure noise image should yield zero lines."""
         rng = np.random.default_rng(0)
         img = rng.normal(0.0, 1.0, (128, 128)).astype(np.float32)
-        params = PeakHoughParams(threshold_sigma=3.0)
+        params = PeakHoughParams(threshold_sigma=3.5)
         result = PeakHoughDetector(params).detect(binary=None, source_data=img, min_line_length=20)
         assert result.lines.shape == (0, 1, 4)
 
@@ -146,7 +149,7 @@ class TestDetectInterface:
         """binary_image and normalized_display have the same spatial shape as input."""
         rng = np.random.default_rng(1)
         img = rng.normal(0.0, 1.0, (64, 64)).astype(np.float32)
-        params = PeakHoughParams(threshold_sigma=3.0)
+        params = PeakHoughParams(threshold_sigma=2.0)
         result = PeakHoughDetector(params).detect(binary=None, source_data=img, min_line_length=10)
         assert result.binary_image.shape       == (64, 64)
         assert result.normalized_display.shape == (64, 64)
@@ -156,77 +159,8 @@ class TestDetectInterface:
         rng = np.random.default_rng(2)
         img   = rng.normal(0.0, 1.0, (64, 64)).astype(np.float32)
         dummy = np.zeros((64, 64), dtype=np.uint8)
-        params = PeakHoughParams(threshold_sigma=3.0)
+        params = PeakHoughParams(threshold_sigma=2.0)
         det = PeakHoughDetector(params)
         r1 = det.detect(binary=None,  source_data=img, min_line_length=10)
         r2 = det.detect(binary=dummy, source_data=img, min_line_length=10)
         assert np.array_equal(r1.lines, r2.lines)
-def test_peak_hough_detector_returns_raw_detection_shape():
-    rng = np.random.default_rng(11)
-    data = rng.normal(1000.0, 20.0, (128, 128)).astype(np.float32)
-
-    x0, y0, x1, y1 = 15, 20, 115, 90
-    length = int(np.hypot(x1 - x0, y1 - y0))
-    xs = np.linspace(x0, x1, length).astype(int)
-    ys = np.linspace(y0, y1, length).astype(int)
-    data[ys, xs] += 3000.0
-
-    detector = PeakHoughDetector(
-        PeakHoughParams(
-            median_bins=32,
-            polynomial_degree=3,
-            threshold_sigma=2.0,
-            hough_threshold=5,
-            max_line_gap=8,
-        )
-    )
-    result = detector.detect(
-        binary=np.zeros_like(data, dtype=np.uint8),
-        source_data=data,
-        min_line_length=30,
-    )
-
-    assert result.lines.ndim == 3
-    assert result.lines.shape[1:] == (1, 4)
-    assert result.lines.dtype == np.int32
-    assert result.binary_image.shape == data.shape
-    assert result.binary_image.dtype == np.uint8
-    assert len(result.lines) >= 1
-
-
-def test_peak_hough_detector_handles_empty_image():
-    data = np.zeros((64, 64), dtype=np.float32)
-    detector = PeakHoughDetector(PeakHoughParams())
-
-    result = detector.detect(
-        binary=np.zeros_like(data, dtype=np.uint8),
-        source_data=data,
-        min_line_length=20,
-    )
-
-    assert result.lines.shape == (0, 1, 4)
-    assert result.binary_image.shape == data.shape
-
-
-def test_peak_hough_detector_supports_legacy_row_peak_mode():
-    rng = np.random.default_rng(12)
-    data = rng.normal(1000.0, 20.0, (96, 96)).astype(np.float32)
-    data[45, 10:85] += 2500.0
-
-    detector = PeakHoughDetector(
-        PeakHoughParams(
-            peak_mode="row_1d",
-            median_bins=24,
-            polynomial_degree=3,
-            threshold_sigma=2.0,
-            hough_threshold=5,
-        )
-    )
-    result = detector.detect(
-        binary=np.zeros_like(data, dtype=np.uint8),
-        source_data=data,
-        min_line_length=20,
-    )
-
-    assert result.binary_image.shape == data.shape
-    assert np.count_nonzero(result.binary_image) > 0

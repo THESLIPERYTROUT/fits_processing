@@ -65,23 +65,16 @@ from streakiller.config.defaults import (
     FFT_TEMPLATE_EDGE_MARGIN,
     FFT_STREAK_EDGE_MARGIN,
     FFT_PROMINENCE_FRACTION,
-    PEAK_HOUGH_THRESHOLD_SIGMA,
-    PEAK_HOUGH_GAUSSIAN_KERNEL_SIZE,
-    PEAK_HOUGH_ENDPOINT_WALK_SIGMA,
-    PEAK_HOUGH_ENDPOINT_GAP_TOLERANCE,
+    PEAK_HOUGH_CLIP_PERCENTILE_LOW,
+    PEAK_HOUGH_CLIP_PERCENTILE_HIGH,
     PEAK_HOUGH_MEDIAN_BINS,
     PEAK_HOUGH_POLYNOMIAL_DEGREE,
-    PEAK_HOUGH_SMOOTH_SIGMA,
+    PEAK_HOUGH_BACKGROUND_SMOOTH_SIGMA,
     PEAK_HOUGH_THRESHOLD_SIGMA,
-    PEAK_HOUGH_THRESHOLD,
+    PEAK_HOUGH_HOUGH_THRESHOLD,
     PEAK_HOUGH_MAX_LINE_GAP,
-    PEAK_HOUGH_RHO,
-    PEAK_HOUGH_THETA_DEG,
-    PEAK_HOUGH_DILATION_KERNEL,
-    PEAK_HOUGH_PEAK_MODE,
-    PEAK_HOUGH_LOCAL_WINDOW,
-    PEAK_HOUGH_LOCAL_MAX_SIZE,
-    PEAK_HOUGH_GLOBAL_FLOOR_SIGMA,
+    PEAK_HOUGH_ENDPOINT_WALK_SIGMA,
+    PEAK_HOUGH_ENDPOINT_GAP_TOLERANCE,
 )
 
 # Keys in old config.json that were misspelled.  Maps old_key -> canonical_key.
@@ -103,6 +96,25 @@ class HoughParams:
     max_line_gap: int = HOUGH_MAX_LINE_GAP
     rho: float = HOUGH_RHO
     theta_deg: float = HOUGH_THETA_DEG
+
+
+@dataclass
+class PeakHoughParams:
+    # per-row polynomial background subtraction
+    clip_percentile_low: float     = PEAK_HOUGH_CLIP_PERCENTILE_LOW
+    clip_percentile_high: float    = PEAK_HOUGH_CLIP_PERCENTILE_HIGH
+    median_bins: int               = PEAK_HOUGH_MEDIAN_BINS
+    polynomial_degree: int         = PEAK_HOUGH_POLYNOMIAL_DEGREE
+    background_smooth_sigma: float = PEAK_HOUGH_BACKGROUND_SMOOTH_SIGMA
+    threshold_sigma: float         = PEAK_HOUGH_THRESHOLD_SIGMA
+    # Hough parameters (lower threshold than dense-mask StreakDetector — sparse mask has fewer pixels)
+    hough_threshold: int           = PEAK_HOUGH_HOUGH_THRESHOLD
+    max_line_gap: int              = PEAK_HOUGH_MAX_LINE_GAP
+    rho: float                     = HOUGH_RHO
+    theta_deg: float               = HOUGH_THETA_DEG
+    # endpoint walk-out
+    endpoint_walk_sigma: float     = PEAK_HOUGH_ENDPOINT_WALK_SIGMA
+    endpoint_gap_tolerance: int    = PEAK_HOUGH_ENDPOINT_GAP_TOLERANCE
 
 
 @dataclass
@@ -233,34 +245,6 @@ class FftDetectorParams:
     template_edge_margin: int = FFT_TEMPLATE_EDGE_MARGIN
     streak_edge_margin: int = FFT_STREAK_EDGE_MARGIN
     prominence_fraction: float = FFT_PROMINENCE_FRACTION
-
-
-@dataclass
-class PeakHoughParams:
-    """
-    Parameters for row-peak detection followed by HoughLinesP.
-
-    This detector fits a smooth median-derived baseline to every row, detects
-    positive peaks in each row residual, builds a sparse peak mask, then runs
-    probabilistic Hough line detection on that mask.
-    """
-
-    median_bins: int = PEAK_HOUGH_MEDIAN_BINS
-    polynomial_degree: int = PEAK_HOUGH_POLYNOMIAL_DEGREE
-    smooth_sigma: float = PEAK_HOUGH_SMOOTH_SIGMA
-    threshold_sigma: float = PEAK_HOUGH_THRESHOLD_SIGMA
-    hough_threshold: int = PEAK_HOUGH_THRESHOLD
-    max_line_gap: int = PEAK_HOUGH_MAX_LINE_GAP
-    rho: float = PEAK_HOUGH_RHO
-    theta_deg: float = PEAK_HOUGH_THETA_DEG
-    dilation_kernel: int = PEAK_HOUGH_DILATION_KERNEL
-    peak_mode: str = PEAK_HOUGH_PEAK_MODE
-    local_window: int = PEAK_HOUGH_LOCAL_WINDOW
-    local_max_size: int = PEAK_HOUGH_LOCAL_MAX_SIZE
-    global_floor_sigma: float = PEAK_HOUGH_GLOBAL_FLOOR_SIGMA
-    gaussian_kernel_size: int = PEAK_HOUGH_GAUSSIAN_KERNEL_SIZE
-    endpoint_walk_sigma: float = PEAK_HOUGH_ENDPOINT_WALK_SIGMA
-    endpoint_gap_tolerance: int = PEAK_HOUGH_ENDPOINT_GAP_TOLERANCE
 
 
 @dataclass
@@ -396,29 +380,6 @@ class PipelineConfig:
             raise ConfigError(
                 f"peak_hough_params.hough_threshold must be >= 1, got {php.hough_threshold}"
             )
-        if php.dilation_kernel < 1:
-            raise ConfigError(
-                f"peak_hough_params.dilation_kernel must be >= 1, got {php.dilation_kernel}"
-            )
-        if php.peak_mode not in {"row_1d", "local_2d"}:
-            raise ConfigError(
-                "peak_hough_params.peak_mode must be 'row_1d' or 'local_2d', "
-                f"got {php.peak_mode!r}"
-            )
-        if php.local_window < 3:
-            raise ConfigError(
-                f"peak_hough_params.local_window must be >= 3, got {php.local_window}"
-            )
-        if php.local_max_size < 1:
-            raise ConfigError(
-                f"peak_hough_params.local_max_size must be >= 1, got {php.local_max_size}"
-            )
-        if php.global_floor_sigma < 0:
-            raise ConfigError(
-                "peak_hough_params.global_floor_sigma must be >= 0, "
-                f"got {php.global_floor_sigma}"
-            )
-
         if php.endpoint_walk_sigma < 0:
             raise ConfigError(
                 f"peak_hough_params.endpoint_walk_sigma must be >= 0, got {php.endpoint_walk_sigma}"
