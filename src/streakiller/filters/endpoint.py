@@ -31,8 +31,11 @@ def endpoint_filter(lines: np.ndarray, params: FilterParams) -> np.ndarray:
 
     for line in lines:
         x1, y1, x2, y2 = line[0]
-        too_close = False
-        for kept in accepted:
+        length = np.hypot(x2 - x1, y2 - y1)
+
+        close_idx = None
+        close_length = None
+        for i, kept in enumerate(accepted):
             fx1, fy1, fx2, fy2 = kept[0]
             dists = [
                 np.hypot(x1 - fx1, y1 - fy1),
@@ -41,10 +44,14 @@ def endpoint_filter(lines: np.ndarray, params: FilterParams) -> np.ndarray:
                 np.hypot(x2 - fx2, y2 - fy2),
             ]
             if any(d < threshold for d in dists):
-                too_close = True
+                close_idx = i
+                close_length = np.hypot(fx2 - fx1, fy2 - fy1)
                 break
-        if not too_close:
+
+        if close_idx is None:
             accepted.append(line)
+        elif length > close_length:
+            accepted[close_idx] = line
 
     if not accepted:
         return np.empty((0, 1, 4), dtype=np.int32)

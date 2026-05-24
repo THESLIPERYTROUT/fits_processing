@@ -55,12 +55,13 @@ class FilterChain:
             steps.append(("angle_filter", angle_filter))
         if enabled.colinear_filter:
             steps.append(("colinear_merge", colinear_merge))
-        if enabled.length_filter:
-            steps.append(("length_filter", length_filter))
         if enabled.midpoint_filter:
             steps.append(("midpoint_filter", midpoint_filter))
         if enabled.endpoint_filter:
             steps.append(("endpoint_filter", endpoint_filter))
+        if enabled.length_filter:
+            steps.append(("length_filter", length_filter))
+
 
         return cls(steps)
 
