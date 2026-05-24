@@ -45,10 +45,10 @@ def test_filter_chain_full_order():
     assert chain.step_names == [
         "angle_filter",
         "colinear_merge",
-        "on_streak_filter",
-        "length_filter",
         "midpoint_filter",
         "endpoint_filter",
+        "on_streak_filter",
+        "length_filter",
     ]
 
 
@@ -66,9 +66,9 @@ def test_filter_chain_order_without_on_streak():
     assert chain.step_names == [
         "angle_filter",
         "colinear_merge",
-        "length_filter",
         "midpoint_filter",
         "endpoint_filter",
+        "length_filter",
     ]
 
 

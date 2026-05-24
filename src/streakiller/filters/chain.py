@@ -39,11 +39,12 @@ class FilterChain:
         """
         Build the chain from the enabled-filters config.
 
-        Order is fixed: angle -> colinear -> on_streak -> length -> midpoint -> endpoint.
-        Colinear merge must precede on_streak and length so fragments are joined
-        before duplicate-detection.  on_streak removes HoughLinesP shadows before
-        the length filter so the modal-length estimate is not distorted by small
-        duplicates.  Midpoint/endpoint deduplication runs last.
+        Order is fixed: angle -> colinear -> midpoint -> endpoint -> on_streak -> length.
+        Colinear merge joins fragments before any deduplication.  Midpoint/endpoint
+        run next to remove spatial duplicates from the merged set.  on_streak then
+        removes any remaining HoughLinesP shadows (detections whose endpoints fall on
+        an accepted line's infinite span).  Length runs last on the fully deduplicated
+        set so its modal estimate is not distorted by small duplicate fragments.
         """
         from streakiller.filters.midpoint import midpoint_filter
         from streakiller.filters.angle import angle_filter
@@ -57,14 +58,14 @@ class FilterChain:
             steps.append(("angle_filter", angle_filter))
         if enabled.colinear_filter:
             steps.append(("colinear_merge", colinear_merge))
-        if enabled.on_streak_filter:
-            steps.append(("on_streak_filter", on_streak_filter))
-        if enabled.length_filter:
-            steps.append(("length_filter", length_filter))
         if enabled.midpoint_filter:
             steps.append(("midpoint_filter", midpoint_filter))
         if enabled.endpoint_filter:
             steps.append(("endpoint_filter", endpoint_filter))
+        if enabled.on_streak_filter:
+            steps.append(("on_streak_filter", on_streak_filter))
+        if enabled.length_filter:
+            steps.append(("length_filter", length_filter))
 
         return cls(steps)
 

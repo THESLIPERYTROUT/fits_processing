@@ -7,7 +7,8 @@ physical streak.  The length filter struggles with this because small duplicate
 detections swell the population and drag the modal-length estimate down, causing
 the filter to discard good long-streak candidates.
 
-This filter runs before the length filter to remove those short duplicates first:
+This filter runs after midpoint/endpoint deduplication and before the length
+filter so the modal-length estimate operates on a clean set:
 
   For each candidate line C (processed longest-first):
     For each already-accepted line A:
