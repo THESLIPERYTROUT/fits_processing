@@ -13,7 +13,8 @@
         "colinear_filter": false,
         "line_angle": true,
         "endpoint_filter" : true,
-        "length_filter" : true
+        "length_filter" : false,
+        "on_streak_filter": true
     },
 
     "detection_method": {

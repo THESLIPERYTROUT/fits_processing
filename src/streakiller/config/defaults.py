@@ -29,7 +29,7 @@ LENGTH_FRACTION = 0.90          # lower floor: drop lines shorter than this frac
 MAX_LENGTH_FACTOR = 1.4           # upper cap: drop lines longer than this multiple of the median (catches merged overlapping detections)
 COLINEAR_ORIENTATION_TOL = 1.0    # cross-product magnitude below which two segments are collinear
 COLINEAR_MAX_ENDPOINT_DISTANCE = 100.0  # pixels; collinear segments farther apart than this are not merged
-ON_STREAK_PROXIMITY_PX = 3.0      # pixels; if either endpoint of a line falls within this perpendicular distance of an accepted line's infinite span, the line is treated as a duplicate
+ON_STREAK_PROXIMITY_PX = 5.0      # pixels; if either endpoint of a line falls within this perpendicular distance of an accepted line's infinite span, the line is treated as a duplicate
 MAX_RAW_LINES = 2000              # hard cap on raw detections before the filter chain; prevents O(n²) blowup on very busy images (longest lines kept)
 
 # --- Hot pixel removal (streakprocessing.py:685) ---
