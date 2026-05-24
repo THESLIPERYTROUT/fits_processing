@@ -74,12 +74,6 @@ from streakiller.config.defaults import (
     PEAK_HOUGH_HOUGH_THRESHOLD,
     PEAK_HOUGH_MAX_LINE_GAP,
     PEAK_HOUGH_DILATION_KERNEL,
-    PEAK_HOUGH_SUPPORT_RADIUS,
-    PEAK_HOUGH_MIN_SUPPORT_FRACTION,
-    PEAK_HOUGH_MIN_SUPPORT_PIXELS,
-    PEAK_HOUGH_MIN_MEAN_SNR,
-    PEAK_HOUGH_ENDPOINT_WALK_SIGMA,
-    PEAK_HOUGH_ENDPOINT_GAP_TOLERANCE,
 )
 
 # Keys in old config.json that were misspelled.  Maps old_key -> canonical_key.
@@ -118,13 +112,6 @@ class PeakHoughParams:
     rho: float                     = HOUGH_RHO
     theta_deg: float               = HOUGH_THETA_DEG
     dilation_kernel: int           = PEAK_HOUGH_DILATION_KERNEL
-    support_radius: int            = PEAK_HOUGH_SUPPORT_RADIUS
-    min_support_fraction: float    = PEAK_HOUGH_MIN_SUPPORT_FRACTION
-    min_support_pixels: int        = PEAK_HOUGH_MIN_SUPPORT_PIXELS
-    min_mean_snr: float            = PEAK_HOUGH_MIN_MEAN_SNR
-    # endpoint walk-out
-    endpoint_walk_sigma: float     = PEAK_HOUGH_ENDPOINT_WALK_SIGMA
-    endpoint_gap_tolerance: int    = PEAK_HOUGH_ENDPOINT_GAP_TOLERANCE
 
     @classmethod
     def from_dict(cls, raw: dict) -> "PeakHoughParams":
@@ -416,31 +403,8 @@ class PipelineConfig:
             raise ConfigError(
                 f"peak_hough_params.dilation_kernel must be >= 1, got {php.dilation_kernel}"
             )
-        if php.support_radius < 0:
             raise ConfigError(
-                f"peak_hough_params.support_radius must be >= 0, got {php.support_radius}"
-            )
-        if not (0.0 <= php.min_support_fraction <= 1.0):
-            raise ConfigError(
-                "peak_hough_params.min_support_fraction must be in [0, 1], "
-                f"got {php.min_support_fraction}"
-            )
-        if php.min_support_pixels < 0:
-            raise ConfigError(
-                "peak_hough_params.min_support_pixels must be >= 0, "
-                f"got {php.min_support_pixels}"
-            )
-        if php.min_mean_snr < 0:
-            raise ConfigError(
-                f"peak_hough_params.min_mean_snr must be >= 0, got {php.min_mean_snr}"
-            )
-        if php.endpoint_walk_sigma < 0:
-            raise ConfigError(
-                f"peak_hough_params.endpoint_walk_sigma must be >= 0, got {php.endpoint_walk_sigma}"
-            )
-        if php.endpoint_gap_tolerance < 0:
-            raise ConfigError(
-                f"peak_hough_params.endpoint_gap_tolerance must be >= 0, got {php.endpoint_gap_tolerance}"
+                f"peak_hough_params.dilation_kernel must be >= 1, got {php.dilation_kernel}"
             )
 
         fp = self.filter_params

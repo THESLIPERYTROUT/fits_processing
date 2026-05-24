@@ -78,18 +78,13 @@ FFT_STREAK_EDGE_MARGIN = 5       # detected streaks closer than N px to the imag
 FFT_PROMINENCE_FRACTION = 0.5    # reject peaks below this fraction of the maximum correlation score
 
 # --- Peak-Hough detector (per-row polynomial baseline + find_peaks) ---
+# Values match devtools/plotter.py CLI defaults (parse_args), which is what was tested.
 PEAK_HOUGH_CLIP_PERCENTILE_LOW = 1.0          # lower percentile clip before background fit
 PEAK_HOUGH_CLIP_PERCENTILE_HIGH = 99.0        # upper percentile clip
 PEAK_HOUGH_MEDIAN_BINS = 80                   # per-row bin count for median background curve
-PEAK_HOUGH_POLYNOMIAL_DEGREE = 3              # polynomial degree for per-row baseline fit
+PEAK_HOUGH_POLYNOMIAL_DEGREE = 6              # polynomial degree for per-row baseline fit
 PEAK_HOUGH_BACKGROUND_SMOOTH_SIGMA = 5.0      # Gaussian smooth sigma (along rows) before fitting
-PEAK_HOUGH_THRESHOLD_SIGMA = 2.0              # per-row peak threshold: N × std(row residual)
+PEAK_HOUGH_THRESHOLD_SIGMA = 2.5              # per-row peak threshold: N × std(row residual)
 PEAK_HOUGH_HOUGH_THRESHOLD = 10               # Hough vote threshold (lower than dense-mask default)
 PEAK_HOUGH_MAX_LINE_GAP = 10                  # Hough max gap (wider than dense-mask default)
-PEAK_HOUGH_DILATION_KERNEL = 3                # dilation size for sparse peak mask before Hough
-PEAK_HOUGH_SUPPORT_RADIUS = 1                 # px radius when checking if a line is supported by peak pixels
-PEAK_HOUGH_MIN_SUPPORT_FRACTION = 0.20        # min fraction of sampled line points near a peak pixel
-PEAK_HOUGH_MIN_SUPPORT_PIXELS = 8             # absolute min supported points along a line
-PEAK_HOUGH_MIN_MEAN_SNR = 0.75                # min mean positive residual along line, in global robust sigma
-PEAK_HOUGH_ENDPOINT_WALK_SIGMA = 1.5          # walk-out floor = N × σ_local at endpoint
-PEAK_HOUGH_ENDPOINT_GAP_TOLERANCE = 3         # consecutive below-floor steps before stopping
+PEAK_HOUGH_DILATION_KERNEL = 3                # dilation kernel size for sparse peak mask before Hough
