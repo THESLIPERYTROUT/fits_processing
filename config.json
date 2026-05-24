@@ -17,18 +17,18 @@
     },
 
     "detection_method": {
-        "hough": true,
+        "hough": false,
         "fft_correlation": false,
-        "peak_hough": false
+        "peak_hough": true
     },
 
     "background_detection_method":
     {
         "simple_median" : false,
-        "Guassian_blur" : true,
+        "Guassian_blur" : false,
         "doublepass_median_to_guassian_blur" : false,
         "adaptive_local": false,
-        "per_row_median_curve": false
+        "per_row_median_curve": true
     }
 
 }
