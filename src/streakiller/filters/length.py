@@ -27,7 +27,9 @@ def length_filter(lines: np.ndarray, params: FilterParams) -> np.ndarray:
     Keep lines between ``length_fraction * modal_length`` and
     ``max_length_factor * modal_length``.
 
-    If every line would be dropped, the original set is returned unchanged.
+    If there are fewer than ``params.lines_filter_min_lines`` candidates, keep
+    only the longest line. If every line would be dropped by the modal-length
+    band, the original set is returned unchanged.
 
     Parameters
     ----------
@@ -40,11 +42,13 @@ def length_filter(lines: np.ndarray, params: FilterParams) -> np.ndarray:
     """
     if lines is None or len(lines) == 0:
         return np.empty((0, 1, 4), dtype=np.int32)
-
     coords = lines[:, 0, :]
     dx = coords[:, 2] - coords[:, 0]
     dy = coords[:, 3] - coords[:, 1]
     lengths = np.hypot(dx, dy)
+
+    if len(lines) < params.lines_filter_min_lines:
+        return lines[[int(np.argmax(lengths))]].astype(np.int32, copy=False)
 
     modal_len = _modal_length(lengths)
     min_allowed = params.length_fraction * modal_len
@@ -80,15 +84,14 @@ def _modal_length(lengths: np.ndarray) -> float:
     bins = max(1, int(np.ceil((length_max - length_min) / bin_width)))
     counts, edges = np.histogram(lengths, bins=bins)
 
-    if counts.max() <= 1:
+    tallest = int(counts.max())
+    if tallest <= 1:
         return float(np.median(lengths))
 
-    peaks = _histogram_peaks(counts)
-    if not peaks:
-        peaks = [int(np.argmax(counts))]
-
-    tallest = max(counts[i] for i in peaks)
-    significant = [i for i in peaks if counts[i] >= tallest * _PEAK_SIGNIFICANCE]
+    significant = [
+        i for i, count in enumerate(counts)
+        if count > 0 and count >= tallest * _PEAK_SIGNIFICANCE
+    ]
     best_bin = significant[-1]  # rightmost = longest significant peak
 
     in_bin = (lengths >= edges[best_bin]) & (lengths <= edges[best_bin + 1])

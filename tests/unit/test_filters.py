@@ -239,10 +239,16 @@ class TestColinearMerge:
 # ------------------------------------------------------------------ #
 
 class TestLengthFilter:
-    def test_keeps_all_equal_length_lines(self):
+    def test_sparse_set_keeps_only_one_line(self):
         lines = _lines((0, 0, 50, 0), (0, 100, 50, 100), (0, 200, 50, 200))
         result = length_filter(lines, FilterParams(length_fraction=0.8))
-        assert len(result) == 3
+        assert len(result) == 1
+
+    def test_sparse_set_prefers_longest_line(self):
+        lines = _lines((0, 0, 10, 0), (0, 0, 400, 0))
+        result = length_filter(lines, FilterParams(length_fraction=0.99, max_length_factor=1.01))
+        assert len(result) == 1
+        assert result[0, 0, 2] - result[0, 0, 0] == 400
 
     def test_lower_floor_drops_short_fragments(self):
         # modal length = 100; min_allowed = 0.9 * 100 = 90
@@ -289,11 +295,18 @@ class TestLengthFilter:
         assert len(result_loose) == 6
 
     def test_fallback_returns_all_when_nothing_survives(self):
-        # Two lines with wildly different lengths — median lands between them,
-        # both end up outside the band; fallback should return all lines unchanged.
-        lines = _lines((0, 0, 10, 0), (0, 0, 400, 0))
-        result = length_filter(lines, FilterParams(length_fraction=0.99, max_length_factor=1.01))
-        assert len(result) == 2
+        # The selected modal bin has an even-pair median between actual lengths,
+        # so an exact band keeps nothing and the fallback returns all lines.
+        lines = _lines(
+            (0, 0, 100, 0),
+            (0, 10, 101, 10),
+            (0, 20, 102, 20),
+            (0, 30, 500, 30),
+            (0, 40, 520, 40),
+            (0, 50, 540, 50),
+        )
+        result = length_filter(lines, FilterParams(length_fraction=1.0, max_length_factor=1.0))
+        assert len(result) == 6
 
     def test_uses_modal_cluster_instead_of_median(self):
         lines = _lines(

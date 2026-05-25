@@ -23,6 +23,7 @@ from streakiller.config.defaults import (
     ENDPOINT_MIN_DISTANCE,
     ANGLE_MIN_DIFF_DEG,
     ANGLE_FILTER_MIN_LINES,
+    LINES_FILTER_MIN_LINES,
     LENGTH_FRACTION,
     MAX_LENGTH_FACTOR,
     COLINEAR_ORIENTATION_TOL,
@@ -138,6 +139,7 @@ class FilterParams:
     colinear_max_endpoint_distance: float = COLINEAR_MAX_ENDPOINT_DISTANCE
     on_streak_proximity_px: float = ON_STREAK_PROXIMITY_PX
     max_raw_lines: int = MAX_RAW_LINES
+    lines_filter_min_lines: int = LINES_FILTER_MIN_LINES
 
 
 @dataclass
