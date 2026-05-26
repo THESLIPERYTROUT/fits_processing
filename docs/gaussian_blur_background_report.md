@@ -1,5 +1,6 @@
 # Gaussian Blur Background Estimator
-## Design Report — Streakiller
+
+*Default background estimator · [Developer Guide](../ARCHITECTURE.md)*
 
 ---
 

@@ -1,5 +1,6 @@
 # Hough Line Detection
-## Design Report — Streakiller
+
+*Default streak detector · [Developer Guide](../ARCHITECTURE.md)*
 
 ---
 

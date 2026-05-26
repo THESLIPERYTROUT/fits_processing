@@ -1,5 +1,6 @@
 # Double-Pass Background Estimator
-## Design Report — Streakiller
+
+*Most accurate background estimator for complex scenes · [Developer Guide](../ARCHITECTURE.md)*
 
 ---
 

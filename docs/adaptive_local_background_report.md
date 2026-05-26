@@ -1,5 +1,6 @@
 # Adaptive Local Background Estimator
-## Design Report — Streakiller v0.1+
+
+*Per-tile noise estimation for spatially varying backgrounds · [Developer Guide](../ARCHITECTURE.md)*
 
 ---
 

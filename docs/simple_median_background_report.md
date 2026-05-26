@@ -1,5 +1,6 @@
 # Simple Median Background Estimator
-## Design Report — Streakiller
+
+*Fastest background estimator · [Developer Guide](../ARCHITECTURE.md)*
 
 ---
 

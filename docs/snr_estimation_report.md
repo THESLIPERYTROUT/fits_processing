@@ -1,5 +1,6 @@
 # Streak SNR Estimation
-## Design Report — Streakiller
+
+*Aperture photometry per detected line · [Developer Guide](../ARCHITECTURE.md)*
 
 ---
 
